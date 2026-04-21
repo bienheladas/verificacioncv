@@ -95,6 +95,7 @@ namespace Minedu.VC.Verifier.Controllers
             return new
             {
                 id = "pd",
+                format = new { ldp_vc = new { proof_type = new[] { "JsonWebSignature2020" } } },
                 input_descriptors = new[]
                 {
                     new { id = "vc", constraints = new { fields } }
