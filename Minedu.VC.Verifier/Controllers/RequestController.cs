@@ -47,122 +47,57 @@ namespace Minedu.VC.Verifier.Controllers
             // --- Definiciones dinámicas según perfil ---
             object[] fields;
 
+            // Todos los filtros usan type=string + pattern=.* (Inji requiere pattern en todos los campos).
+            // La validación real de valores se hace server-side en VerificationService.
+            var any = new { type = "string", pattern = ".*" };
+            var vcType = new { type = "string", pattern = "CertificadoEstudios" };
+
             switch (profile)
             {
-                // EMPRESA → verificar que terminó 5to grado de secundaria (EBR)
                 case "empresa":
-                    fields = new object[] 
+                    fields = new object[]
                     {
-                        new {
-                            path = new[] { "$.credentialSubject.modalidad" },
-                            filter = new { type = "string"}
-                        },
-                        new {
-                            path = new[] { "$.credentialSubject.gradosConcluidos" },
-                            filter = new { type = "array" }
-                        },
-                        new {
-                            path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" },
-                            filter = new { type = "integer"}
-                        },
-                        new {
-                            path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" },
-                            filter = new { type = "integer" }
-                        },
-                        // Situación final APROBADO
-                        new {
-                            path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" },
-                            filter = new { type = "string"}
-                        },
-                        // Datos personales mínimos
-                        new {
-                            path = new[] { "$.credentialSubject.titular.numeroDocumento" },
-                            filter = new { type = "string"}
-                        },
-                        new {
-                            path = new[] { "$.credentialSubject.titular.nombres" },
-                            filter = new { type = "string"}
-                        },
-                        // Incluimos el patrón general de tipo de VC para asegurar formato correcto
-                        new {
-                            path = new[] { "$.type[*]" },
-                            filter = new { type = "string", pattern = "CertificadoEstudios" }
-                        }
+                        new { path = new[] { "$.credentialSubject.modalidad" },                          filter = any },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos" },                   filter = any },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" },          filter = any },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" },           filter = any },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = any },
+                        new { path = new[] { "$.credentialSubject.titular.numeroDocumento" },            filter = any },
+                        new { path = new[] { "$.credentialSubject.titular.nombres" },                   filter = any },
+                        new { path = new[] { "$.type[*]" },                                             filter = vcType }
                     };
-
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil empresa.");
                     break;
 
-                // INSTITUTO → promedio AD/A en áreas de arte en todos los grados
                 case "instituto":
-                    fields = new object[] 
+                    fields = new object[]
                     {
-                        new {
-                            path = new[] { "$.credentialSubject.gradosConcluidos[*].notas[*].area" },
-                            filter = new { type = "string", pattern = "ARTE Y CULTURA" }
-                        },
-                        // Datos personales mínimos
-                        new {
-                            path = new[] { "$.credentialSubject.titular.numeroDocumento" },
-                            filter = new { type = "string", minLength = 8 }
-                        },
-                        new {
-                            path = new[] { "$.credentialSubject.titular.nombres" },
-                            filter = new { type = "string", minLength = 2 }
-                        },
-                        // Incluimos el patrón general de tipo de VC para asegurar formato correcto
-                        new {
-                            path = new[] { "$.type[*]" },
-                            filter = new { type = "string", pattern = "CertificadoEstudios" }
-                        }
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].notas[*].area" }, filter = any },
+                        new { path = new[] { "$.credentialSubject.titular.numeroDocumento" },            filter = any },
+                        new { path = new[] { "$.credentialSubject.titular.nombres" },                   filter = any },
+                        new { path = new[] { "$.type[*]" },                                             filter = vcType }
                     };
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil instituto.");
                     break;
 
-                // ENTIDAD PÚBLICA → cursa 5to grado en el presente año (2025)
                 case "entidad-publica":
-                    fields = new object[] 
+                    fields = new object[]
                     {
-                        new {
-                            path = new[] { "$.credentialSubject.modalidad" },
-                            filter = new { type = "string" }
-                        },
-                        new {
-                            path = new[] { "$.credentialSubject.nivel" },
-                            filter = new { type = "string" }
-                        },
-                        new {
-                            path = new[] { "$.credentialSubject.gradosConcluidos" },
-                            filter = new { type = "array" }
-                        },
-                        new {
-                            path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" },
-                            filter = new { type = "integer" }
-                        },
-                        new {
-                            path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" },
-                            filter = new { type = "integer" }
-                        },
-                        // Situación final APROBADO
-                        new {
-                            path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" },
-                            filter = new { type = "string"}
-                        },
-                        // Incluimos el patrón general de tipo de VC para asegurar formato correcto
-                        new {
-                            path = new[] { "$.type[*]" },
-                            filter = new { type = "string", pattern = "CertificadoEstudios" }
-                        }
+                        new { path = new[] { "$.credentialSubject.modalidad" },                          filter = any },
+                        new { path = new[] { "$.credentialSubject.nivel" },                              filter = any },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos" },                   filter = any },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" },          filter = any },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" },           filter = any },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = any },
+                        new { path = new[] { "$.type[*]" },                                             filter = vcType }
                     };
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil entidad-publica.");
                     break;
 
                 default:
-                    fields = new object[] {
-                        new {
-                            path = new[] { "$.type[*]" },
-                            filter = new { type = "string", pattern = "CertificadoEstudios" }
-                        }
+                    fields = new object[]
+                    {
+                        new { path = new[] { "$.type[*]" }, filter = vcType }
                     };
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación por defecto.");
                     break;
