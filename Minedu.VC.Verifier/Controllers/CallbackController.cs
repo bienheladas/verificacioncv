@@ -1,7 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Minedu.VC.Verifier.Services;
 using System.Text.Json;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Minedu.VC.Verifier.Controllers
 {
@@ -20,72 +19,65 @@ namespace Minedu.VC.Verifier.Controllers
             _logger = logger;
         }
 
+        // Inji envía la VP como application/x-www-form-urlencoded (spec OID4VP direct_post)
         [HttpPost("{sessionId}")]
-        public async Task<IActionResult> ReceivePresentation(string sessionId, [FromBody] JsonElement body)
+        [Consumes("application/x-www-form-urlencoded", "application/json")]
+        public async Task<IActionResult> ReceivePresentation(
+            string sessionId,
+            [FromForm] string? vp_token = null,
+            [FromForm] string? presentation_submission = null,
+            [FromForm] string? state = null)
         {
             _logger.LogInformation("Iniciando verificación de presentación para sesión {SessionId}", sessionId);
 
-            // 0) Validar sesion 
             var session = _sessions.GetSession(sessionId);
-            if (session == null) 
+            if (session == null)
             {
                 _logger.LogWarning("Sesión no encontrada: {SessionId}", sessionId);
-                return NotFound("Sesion no encontrada."); 
+                return NotFound("Sesion no encontrada.");
             }
 
-            // 1) Validar que venga vp_token
-            if (!body.TryGetProperty("vp_token", out var vpTokenElement))
+            // Si llega como form-urlencoded, vp_token viene directo en el parámetro
+            string? vpToken = vp_token;
+
+            // Fallback: si llega como JSON (pruebas con Postman)
+            if (string.IsNullOrEmpty(vpToken) && Request.ContentType?.Contains("application/json") == true)
+            {
+                using var reader = new StreamReader(Request.Body);
+                var rawBody = await reader.ReadToEndAsync();
+                if (!string.IsNullOrEmpty(rawBody))
+                {
+                    using var doc = JsonDocument.Parse(rawBody);
+                    if (doc.RootElement.TryGetProperty("vp_token", out var el))
+                        vpToken = el.ValueKind == JsonValueKind.String
+                            ? el.GetString()
+                            : el.GetRawText();
+                }
+            }
+
+            if (string.IsNullOrEmpty(vpToken))
             {
                 _logger.LogWarning("Solicitud sin vp_token en sesión {SessionId}", sessionId);
                 return BadRequest(new { error = "Missing vp_token" });
             }
-                
 
-            string? vpToken = null;
+            _logger.LogInformation("vp_token recibido | SessionId={SessionId} | state={State}", sessionId, state);
 
-            if (vpTokenElement.ValueKind == JsonValueKind.String)
+            try
             {
-                // Caso común: viene como string (JWS o JSON serializado)
-                _logger.LogInformation("vpTokenElement viene como string (JWS o JSON serializado). ValueKind: {vpTokenElement.ValueKind}", vpTokenElement.ValueKind);
-                vpToken = vpTokenElement.GetString();
-            }
-            else if (vpTokenElement.ValueKind == JsonValueKind.Object)
-            {
-                // Caso: viene como objeto JSON
-                _logger.LogInformation("vpTokenElement viene como objeto JSON. ValueKind: {vpTokenElement.ValueKind}", vpTokenElement.ValueKind);
-                vpToken = vpTokenElement.GetRawText();
-            }
-            else
-            {
-                _logger.LogWarning("Formato vp_token inválido en sesión {SessionId}", sessionId);
-                return BadRequest(new { error = "Formato vp_token inválido." });
-            }
-
-            try 
-            {
-                _logger.LogInformation("Enviando vp_token a VerificationService.VerifyPresentationAsync");
-
-                // 2.1) Llamar al servicio de verificacion de presentacion (1 parámetro)
-                var baseResult = await _verify.VerifyPresentationAsync(vpToken ?? string.Empty);
+                var baseResult = await _verify.VerifyPresentationAsync(vpToken);
 
                 if (!baseResult.Valid)
                 {
                     _logger.LogWarning("Verificación base fallida | SessionId={SessionId} | Motivo={Reason}", sessionId, baseResult.Reason);
+                    _sessions.UpdateResult(sessionId, baseResult);
                     return Ok(baseResult);
                 }
 
-                _logger.LogInformation("Ejecutando verificación contextual | SessionId={SessionId} | Perfil={Profile}", sessionId, session.Profile ?? "empresa");
-
-                // 2.2) Llamar al servicio de verificacion de reglas de negocio
                 var extendedResult = await _verify.VerifyByProfileAsync(baseResult, session.Profile ?? "empresa", baseResult.VcNode);
-
-                // 3) Guardar resultado en la sesión
                 _sessions.UpdateResult(sessionId, extendedResult);
 
-                _logger.LogInformation("Verificación completada | SessionId={SessionId} | Valid={Valid} | Issuer={Issuer} | Subject={Subject}",
-                    sessionId, extendedResult.Valid, extendedResult.Issuer, extendedResult.Subject);
-
-                // 4) Responder
+                _logger.LogInformation("Verificación completada | SessionId={SessionId} | Valid={Valid}", sessionId, extendedResult.Valid);
                 return Ok(extendedResult);
             }
             catch (Exception ex)
@@ -93,7 +85,6 @@ namespace Minedu.VC.Verifier.Controllers
                 _logger.LogError(ex, "Error procesando verificación | SessionId={SessionId}", sessionId);
                 return StatusCode(500, new { error = ex.Message });
             }
-            
         }
     }
 }
