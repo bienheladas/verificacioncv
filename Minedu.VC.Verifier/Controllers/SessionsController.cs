@@ -80,13 +80,6 @@ namespace Minedu.VC.Verifier.Controllers
             {
                 "empresa" => new object[]
                 {
-                    new { path = new[] { "$.credentialSubject.modalidad" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" } },
-                    new { path = new[] { "$.credentialSubject.titular.numeroDocumento" } },
-                    new { path = new[] { "$.credentialSubject.titular.nombres" } },
                     new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
                 },
                 "instituto" => new object[]
