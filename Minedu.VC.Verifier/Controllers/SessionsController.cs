@@ -58,7 +58,7 @@ namespace Minedu.VC.Verifier.Controllers
                     $"client_id={_config.Did}" +
                     $"&client_id_scheme=did" +
                     $"&client_metadata={Encode(JsonSerializer.Serialize(clientMetadata))}" +
-                    $"&request_uri ={Encode(requestUri)}";
+                    $"&request_uri={Encode(requestUri)}";
             //    $"&response_mode=direct_post" +
             //    $"&response_type=vp_token";
             //    $"&response_uri={Encode(requestUri)}" +
