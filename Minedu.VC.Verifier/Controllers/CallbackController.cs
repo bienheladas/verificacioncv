@@ -67,18 +67,22 @@ namespace Minedu.VC.Verifier.Controllers
             {
                 var baseResult = await _verify.VerifyPresentationAsync(vpToken);
 
+                VerificationResult finalResult;
                 if (!baseResult.Valid)
                 {
                     _logger.LogWarning("Verificación base fallida | SessionId={SessionId} | Motivo={Reason}", sessionId, baseResult.Reason);
-                    _sessions.UpdateResult(sessionId, baseResult);
-                    return Ok(baseResult);
+                    finalResult = baseResult;
+                }
+                else
+                {
+                    finalResult = await _verify.VerifyByProfileAsync(baseResult, session.Profile ?? "empresa", baseResult.VcNode);
                 }
 
-                var extendedResult = await _verify.VerifyByProfileAsync(baseResult, session.Profile ?? "empresa", baseResult.VcNode);
-                _sessions.UpdateResult(sessionId, extendedResult);
+                _sessions.UpdateResult(sessionId, finalResult);
+                _logger.LogInformation("Verificación completada | SessionId={SessionId} | Valid={Valid}", sessionId, finalResult.Valid);
 
-                _logger.LogInformation("Verificación completada | SessionId={SessionId} | Valid={Valid}", sessionId, extendedResult.Valid);
-                return Ok(extendedResult);
+                // OID4VP direct_post: el wallet solo acepta {} (el portal consulta el resultado por polling)
+                return Ok(new { });
             }
             catch (Exception ex)
             {
