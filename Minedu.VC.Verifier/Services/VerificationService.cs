@@ -717,7 +717,7 @@ namespace Minedu.VC.Verifier.Services
             {
                 result.Valid   = false;
                 result.Reason  = "El participante no figura en la lista de invitados del evento";
-                result.Summary = new Dictionary<string, object> { ["Nombres"] = nombres! };
+                result.Summary = new Dictionary<string, object> { ["DNI"] = dni! };
                 return;
             }
 
