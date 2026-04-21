@@ -297,6 +297,7 @@ namespace Minedu.VC.Verifier.Services
                     _logger.LogInformation("Se ha serializado la VC sin proof para comparación canónica.");
 
                     var dumpPath = Path.Combine(_logPath, "Data", "last_payload_verified.json");
+                    Directory.CreateDirectory(Path.GetDirectoryName(dumpPath)!);
 
                     _logger.LogInformation("Se grabará el payload canónico que se usará para comparación en la ruta de logs: {logPath}.", _logPath);
 
@@ -887,6 +888,7 @@ namespace Minedu.VC.Verifier.Services
 
                     // 3️) Guardar en disco para comparar
                     var path = Path.Combine(_logPath, "Data", "statuslist-payload-verificador-sinproof.json");
+                    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                     await File.WriteAllTextAsync(path, payloadWithoutProof);
 
                     _logger.LogInformation("Se generó una copia del payload limpio sin proof en la ruta: {path}", path);
