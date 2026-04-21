@@ -47,9 +47,9 @@ namespace Minedu.VC.Verifier.Controllers
             // --- Definiciones dinámicas según perfil ---
             object[] fields;
 
-            // Todos los filtros usan type=string + pattern=.* (Inji requiere pattern en todos los campos).
+            // Solo pattern sin type: Inji falla cuando typeof valor !== type (ej. number/object ≠ "string").
             // La validación real de valores se hace server-side en VerificationService.
-            var any = new { type = "string", pattern = ".*" };
+            var any = new { pattern = ".*" };
             var vcType = new { type = "string", pattern = "CertificadoEstudios" };
 
             switch (profile)
