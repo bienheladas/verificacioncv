@@ -514,8 +514,11 @@ namespace Minedu.VC.Verifier.Services
                     result.Reason = "Falla en validación criptográfica o estado revocado";
                 }
 
-                _logger.LogInformation("Verificación contextual finalizada | Perfil={Profile} | Valid={Valid} | Reason={Reason}",
-                    result.Profile, result.Valid, result.Reason);
+                var gradoInfo = result.Summary != null && result.Summary.TryGetValue("UltimoGrado", out var g)
+                    ? $" (grado={g}, situacion={result.Summary.GetValueOrDefault("UltimaSituacion", "—")})"
+                    : "";
+                _logger.LogInformation("Verificación contextual finalizada | Perfil={Profile} | Valid={Valid} | Reason={Reason}{GradoInfo}",
+                    result.Profile, result.Valid, result.Reason, gradoInfo);
                 return Task.FromResult(result);
             }
             catch (Exception ex)
@@ -544,6 +547,8 @@ namespace Minedu.VC.Verifier.Services
 
             // 2️) Último grado aprobado = 5
             bool aprobado5to = false;
+            int ultimoGrado = 0;
+            string ultimaSituacion = "—";
             if (data.TryGetValue("gradosConcluidos", out var gradosObj) && gradosObj is JsonArray grados)
             {
                 var ultimo = grados
@@ -556,11 +561,13 @@ namespace Minedu.VC.Verifier.Services
                     .OrderByDescending(x => x.anio)
                     .FirstOrDefault();
 
-                if (ultimo != null &&
-                    ultimo.grado == 5 &&
-                    string.Equals(ultimo.situacion, "APROBADO", StringComparison.OrdinalIgnoreCase))
+                if (ultimo != null)
                 {
-                    aprobado5to = true;
+                    ultimoGrado = ultimo.grado;
+                    ultimaSituacion = ultimo.situacion;
+                    if (ultimo.grado == 5 &&
+                        string.Equals(ultimo.situacion, "APROBADO", StringComparison.OrdinalIgnoreCase))
+                        aprobado5to = true;
                 }
             }
 
@@ -593,6 +600,8 @@ namespace Minedu.VC.Verifier.Services
             result.Summary = new Dictionary<string, object>
             {
                 ["Modalidad"] = modalidad ?? "—",
+                ["UltimoGrado"] = ultimoGrado,
+                ["UltimaSituacion"] = ultimaSituacion,
                 ["5.º aprobado"] = aprobado5to ? "Sí" : "No",
                 ["Documento"] = documento ?? "—",
                 ["Nombres"] = nombres ?? "—"
