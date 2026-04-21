@@ -15,13 +15,16 @@ namespace Minedu.VC.Verifier.Services
             _config = config.Value;
         }
 
+        private static string ShortId() =>
+            Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(4)).ToLower();
+
         public Session CreateSession(string profile)
         {
             var s = new Session
             {
-                SessionId = Guid.NewGuid().ToString("N"),
-                State = Guid.NewGuid().ToString("N"),
-                Nonce = Guid.NewGuid().ToString("N"),
+                SessionId = ShortId(),
+                State = ShortId(),
+                Nonce = ShortId(),
                 Profile = profile.ToLower(),
                 ResponseUri = $"{_config.BaseApiUrl.TrimEnd('/')}{_config.CallbackPath}/"
             };

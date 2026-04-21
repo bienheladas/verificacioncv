@@ -115,14 +115,13 @@ namespace Minedu.VC.Verifier.Controllers
 
             return new
             {
-                id = $"pd-{profile.ToLower()}",
+                id = "pd",
                 format,
                 input_descriptors = new[]
                 {
                     new
                     {
-                        id = $"vc-{profile.ToLower()}",
-                        schema = new[] { schemaUrl },
+                        id = "vc",
                         constraints = new { fields }
                     }
                 }
