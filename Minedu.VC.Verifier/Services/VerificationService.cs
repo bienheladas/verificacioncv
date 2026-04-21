@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc.RazorPages;
 using Minedu.VC.Verifier.Models;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -304,6 +305,11 @@ namespace Minedu.VC.Verifier.Services
                     await File.WriteAllTextAsync(dumpPath, canonicalJson, Encoding.UTF8);
 
                     _logger.LogInformation("Payload canónico guardado en {Path}", dumpPath);
+
+                    var payloadBytesDbg = Encoding.UTF8.GetBytes(canonicalJson);
+                    _logger.LogInformation("PAYLOAD_HASH_VERIFICADOR: {Hash}", Convert.ToHexString(SHA256.HashData(payloadBytesDbg)));
+                    _logger.LogInformation("PAYLOAD_LEN_VERIFICADOR: {Len}", payloadBytesDbg.Length);
+                    _logger.LogInformation("PAYLOAD_PREFIX_VERIFICADOR: {Prefix}", canonicalJson[..Math.Min(300, canonicalJson.Length)]);
 
                     ok = JwsEd25519Verifier.VerifyDetachedJws(protectedHeader, canonicalJson, signature, key.PublicKey);
 
