@@ -1,0 +1,7 @@
+{
+  "kty": "OKP",
+  "crv": "Ed25519",
+  "x": "_JanEpHQt86g90U2yO2rwFVgDtBkWV_chI986t36yNA",
+  "d": "EbAloE67vna0ZFM7OadCyYqjEJIMYinMoLOwtAHdrXA",
+  "kid": "did:web:verificacioncv.ninnstack.com#keys-1"
+}

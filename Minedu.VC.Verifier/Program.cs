@@ -63,6 +63,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<string>(logPath);
+builder.Services.AddSingleton<Minedu.VC.Verifier.Services.VerifierJwtService>();
 builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton<VerificationService>();
 builder.Services.AddSingleton<TrustedIssuerService>();
@@ -88,6 +89,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseAuthorization();
 app.UseCors("AllowAll");
 app.MapControllers();

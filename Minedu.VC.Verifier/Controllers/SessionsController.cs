@@ -38,12 +38,13 @@ namespace Minedu.VC.Verifier.Controllers
             string Encode(string v) => Uri.EscapeDataString(v);
 
             var requestUri = $"{_config.BaseApiUrl.TrimEnd('/')}/verifier/request/{session.SessionId}";
+            var verifierDid = _config.Did;
 
-            // QR corto: wallet descarga el request completo desde request_uri (~240 chars total)
+            // QR corto (~100 chars): client_id=DID, wallet resuelve DID y verifica JWT firmado
             var qrUri =
                 $"openid4vp://authorize?" +
-                $"client_id={Encode(callbackUrl)}" +
-                $"&client_id_scheme=redirect_uri" +
+                $"client_id={Encode(verifierDid)}" +
+                $"&client_id_scheme=did" +
                 $"&request_uri={Encode(requestUri)}";
 
             session.QrUri = qrUri;

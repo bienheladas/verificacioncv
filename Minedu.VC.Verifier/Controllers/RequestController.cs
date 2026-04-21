@@ -13,12 +13,14 @@ namespace Minedu.VC.Verifier.Controllers
     {
         private readonly SessionService _sessions;
         private readonly VerifierConfig _config;
+        private readonly VerifierJwtService _jwt;
         private readonly ILogger<RequestController> _logger;
 
-        public RequestController(SessionService sessions, IOptions<VerifierConfig> cfg, ILogger<RequestController> logger)
+        public RequestController(SessionService sessions, IOptions<VerifierConfig> cfg, VerifierJwtService jwt, ILogger<RequestController> logger)
         {
             _sessions = sessions;
             _config = cfg.Value;
+            _jwt = jwt;
             _logger = logger;
         }
 
@@ -175,16 +177,17 @@ namespace Minedu.VC.Verifier.Controllers
                 _                 => ("TechPerú Empleos S.A.C.", "Área de Recursos Humanos")
             };
 
-            var authRequest = new
+            var claims = new
             {
-                client_id = callbackUrl,
-                client_id_scheme = "redirect_uri",
-                response_type = "vp_token",
-                response_mode = "direct_post",
-                response_uri = callbackUrl,
-                state = s.State,
-                nonce = s.Nonce,
-                client_metadata = new
+                iss              = _config.Did,
+                client_id        = _config.Did,
+                client_id_scheme = "did",
+                response_type    = "vp_token",
+                response_mode    = "direct_post",
+                response_uri     = callbackUrl,
+                state            = s.State,
+                nonce            = s.Nonce,
+                client_metadata  = new
                 {
                     client_name = clientName,
                     logo_uri    = $"{portalBase}/assets/empresa-logo.svg",
@@ -195,25 +198,15 @@ namespace Minedu.VC.Verifier.Controllers
                     id = "pd",
                     format = new { ldp_vc = new { proof_type = new[] { "JsonWebSignature2020" } } },
                     input_descriptors = new[] {
-                        new {
-                            id = "vc",
-                            constraints = new { fields }
-                        }
+                        new { id = "vc", constraints = new { fields } }
                     }
                 }
             };
 
-            var json = JsonSerializer.Serialize(
-                authRequest,
-                new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                });
+            var jwt = _jwt.CreateRequestJwt(claims);
+            _logger.LogInformation("OID4VP Request JWT generado para sessionId={SessionId}", sessionId);
 
-            _logger.LogInformation("OIDC4VP Authorization Request:\n{Request}", json);
-
-            return Ok(authRequest);
+            return Content(jwt, "application/oauth-authz-req+jwt");
         }
     }
 }

@@ -1,0 +1,22 @@
+{
+  "@context": "https://www.w3.org/ns/did/v1",
+  "id": "did:web:verificacioncv.ninnstack.com",
+  "verificationMethod": [
+    {
+      "id": "did:web:verificacioncv.ninnstack.com#keys-1",
+      "type": "JsonWebKey2020",
+      "controller": "did:web:verificacioncv.ninnstack.com",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "_JanEpHQt86g90U2yO2rwFVgDtBkWV_chI986t36yNA"
+      }
+    }
+  ],
+  "authentication": [
+    "did:web:verificacioncv.ninnstack.com#keys-1"
+  ],
+  "assertionMethod": [
+    "did:web:verificacioncv.ninnstack.com#keys-1"
+  ]
+}
