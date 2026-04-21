@@ -191,7 +191,11 @@ namespace Minedu.VC.Verifier.Controllers
                 {
                     client_name = clientName,
                     logo_uri    = $"{portalBase}/assets/empresa-logo.svg",
-                    contacts    = new[] { clientContact }
+                    contacts    = new[] { clientContact },
+                    vp_formats  = new
+                    {
+                        ldp_vp = new { proof_type = new[] { "JsonWebSignature2020" } }
+                    }
                 },
                 presentation_definition = new
                 {
