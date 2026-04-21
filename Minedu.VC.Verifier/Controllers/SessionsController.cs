@@ -80,14 +80,14 @@ namespace Minedu.VC.Verifier.Controllers
             {
                 "empresa" => new object[]
                 {
-                    new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
+                    new { path = new[] { "$.type[*]" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
                 },
                 "instituto" => new object[]
                 {
                     new { path = new[] { "$.credentialSubject.gradosConcluidos[*].notas[*].area" }, filter = new { type = "string", pattern = "ARTE Y CULTURA" } },
                     new { path = new[] { "$.credentialSubject.titular.numeroDocumento" } },
                     new { path = new[] { "$.credentialSubject.titular.nombres" } },
-                    new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
+                    new { path = new[] { "$.type[*]" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
                 },
                 "entidad-publica" => new object[]
                 {
@@ -97,11 +97,11 @@ namespace Minedu.VC.Verifier.Controllers
                     new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" } },
                     new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" } },
                     new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" } },
-                    new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
+                    new { path = new[] { "$.type[*]" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
                 },
                 _ => new object[]
                 {
-                    new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
+                    new { path = new[] { "$.type[*]" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
                 }
             };
 
