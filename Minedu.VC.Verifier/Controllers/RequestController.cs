@@ -83,7 +83,7 @@ namespace Minedu.VC.Verifier.Controllers
                         },
                         // Incluimos el patrón general de tipo de VC para asegurar formato correcto
                         new {
-                            path = new[] { "$.type" },
+                            path = new[] { "$.type[*]" },
                             filter = new { type = "string", pattern = "CertificadoEstudios" }
                         }
                     };
@@ -110,7 +110,7 @@ namespace Minedu.VC.Verifier.Controllers
                         },
                         // Incluimos el patrón general de tipo de VC para asegurar formato correcto
                         new {
-                            path = new[] { "$.type" },
+                            path = new[] { "$.type[*]" },
                             filter = new { type = "string", pattern = "CertificadoEstudios" }
                         }
                     };
@@ -148,7 +148,7 @@ namespace Minedu.VC.Verifier.Controllers
                         },
                         // Incluimos el patrón general de tipo de VC para asegurar formato correcto
                         new {
-                            path = new[] { "$.type" },
+                            path = new[] { "$.type[*]" },
                             filter = new { type = "string", pattern = "CertificadoEstudios" }
                         }
                     };
@@ -158,13 +158,22 @@ namespace Minedu.VC.Verifier.Controllers
                 default:
                     fields = new object[] {
                         new {
-                            path = new[] { "$.type" },
+                            path = new[] { "$.type[*]" },
                             filter = new { type = "string", pattern = "CertificadoEstudios" }
                         }
                     };
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación por defecto.");
                     break;
             }
+
+            var portalBase = _config.PortalBaseUrl.TrimEnd('/');
+            var (clientName, clientContact) = profile switch
+            {
+                "empresa"         => ("TechPerú Empleos S.A.C.", "Área de Recursos Humanos"),
+                "instituto"       => ("Instituto Nacional de Arte del Perú", "Oficina de Admisión"),
+                "entidad-publica" => ("Min. de Trabajo y Promoción del Empleo", "Dir. de Capacitación"),
+                _                 => ("TechPerú Empleos S.A.C.", "Área de Recursos Humanos")
+            };
 
             var authRequest = new
             {
@@ -175,15 +184,19 @@ namespace Minedu.VC.Verifier.Controllers
                 response_uri = callbackUrl,
                 state = s.State,
                 nonce = s.Nonce,
+                client_metadata = new
+                {
+                    client_name = clientName,
+                    logo_uri    = $"{portalBase}/assets/empresa-logo.svg",
+                    contacts    = new[] { clientContact }
+                },
                 presentation_definition = new
                 {
-                    id = $"pd-{profile}",
-                    name = "Validación de Certificado de Estudios",
-                    purpose = "Verificar autenticidad, integridad y condiciones de negocio según perfil",
+                    id = "pd",
+                    format = new { ldp_vc = new { proof_type = new[] { "JsonWebSignature2020" } } },
                     input_descriptors = new[] {
                         new {
-                            id = $"pd-{profile}",
-                            schema = new[] { schemaUrl },
+                            id = "vc",
                             constraints = new { fields }
                         }
                     }
