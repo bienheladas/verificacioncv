@@ -50,6 +50,7 @@ namespace Minedu.VC.Verifier.Controllers
                 $"&state={Encode(session.State)}" +
                 $"&presentation_definition={Encode(pdJson)}";
 
+            session.QrUri = qrUri;
             _logger.LogInformation("qr_uri generado | SessionId={SessionId}", session.SessionId);
 
             return Ok(new
@@ -57,6 +58,19 @@ namespace Minedu.VC.Verifier.Controllers
                 session_id = session.SessionId,
                 profile,
                 qr_uri = qrUri
+            });
+        }
+
+        [HttpGet("{sessionId}")]
+        public IActionResult GetSession(string sessionId)
+        {
+            var session = _sessionService.GetSession(sessionId);
+            if (session is null) return NotFound();
+            return Ok(new
+            {
+                session_id = session.SessionId,
+                profile = session.Profile,
+                qr_uri = session.QrUri
             });
         }
 

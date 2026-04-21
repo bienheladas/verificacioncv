@@ -8,6 +8,7 @@
         public string Profile { get; set; } = "default"; //Perfil del verificador (útil si agregas varios roles)
         public string ResponseUri { get; set; } = default!; //Dónde la wallet debe enviar la VP (callback)
         public string? PresentationDefinitionUri { get; set; } //URL de la definición solicitada (según modo)
+        public string? QrUri { get; set; } //Deeplink OID4VP generado para el QR
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow; //Fecha/hora de creación
         public bool Completed { get; set; } = false; //Bandera que indica si la sesión ya tiene resultado
         public VerificationResult? Result { get; set; } //Resultado de la verificación (firma + contexto)
