@@ -774,15 +774,17 @@ namespace Minedu.VC.Verifier.Services
 
             if (!nivelOk)
             {
-                result.Valid  = false;
-                result.Reason = "La credencial no corresponde a un estudiante de primaria EBR";
+                result.Valid    = false;
+                result.Reason   = "La credencial no corresponde a un estudiante de primaria EBR";
+                result.Summary  = new Dictionary<string, object>();
                 return;
             }
 
             if (string.IsNullOrEmpty(dni))
             {
-                result.Valid  = false;
-                result.Reason = "DNI no presente en la credencial";
+                result.Valid    = false;
+                result.Reason   = "DNI no presente en la credencial";
+                result.Summary  = new Dictionary<string, object>();
                 return;
             }
 
