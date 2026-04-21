@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Minedu.VC.Verifier.Models;
 using Minedu.VC.Verifier.Services;
@@ -16,7 +14,7 @@ namespace Minedu.VC.Verifier.Controllers
         private readonly VerifierConfig _config;
         private readonly ILogger<SessionsController> _logger;
 
-        public SessionsController(SessionService sessionService, 
+        public SessionsController(SessionService sessionService,
                                   IOptions<VerifierConfig> config,
                                   ILogger<SessionsController> logger)
         {
@@ -28,51 +26,93 @@ namespace Minedu.VC.Verifier.Controllers
         [HttpPost]
         public IActionResult CreateSession([FromQuery] string profile = "entidad-publica")
         {
-            _logger.LogInformation("Empieza CreateSession");
+            _logger.LogInformation("Empieza CreateSession | profile={Profile}", profile);
 
             var session = _sessionService.CreateSession(profile);
-
             var callbackUrl = $"{_config.BaseApiUrl.TrimEnd('/')}{_config.CallbackPath}/{session.SessionId}";
-            var requestUri = $"{_config.BaseApiUrl.TrimEnd('/')}/verifier/request/{session.SessionId}";
+            var schemaUrl = $"{_config.SchemaBaseUrl.TrimEnd('/')}/schema.json";
 
-            _logger.LogInformation("callbackUrl={callbackUrl}", callbackUrl);
-            _logger.LogInformation("requestUri={requestUri}", requestUri);
+            _logger.LogInformation("callbackUrl={CallbackUrl}", callbackUrl);
 
             string Encode(string v) => Uri.EscapeDataString(v);
 
-            var clientMetadata = new
-            {
-                vp_formats = new
-                {
-                    ldp_vc = new
-                    {
-                        proof_type = new[] { "JsonWebSignature2020" }
-                    }
-                }
-            };
+            var presentationDefinition = BuildPresentationDefinition(profile, schemaUrl);
+            var pdJson = JsonSerializer.Serialize(presentationDefinition);
 
-            // client_id_scheme=redirect_uri: client_id es la URL del callback,
-            // no requiere request object firmado (JSON plano es suficiente).
             var qrUri =
                 $"openid4vp://authorize?" +
-                    $"client_id={Encode(callbackUrl)}" +
-                    $"&client_id_scheme=redirect_uri" +
-                    $"&client_metadata={Encode(JsonSerializer.Serialize(clientMetadata))}" +
-                    $"&request_uri={Encode(requestUri)}";
-            //    $"&response_mode=direct_post" +
-            //    $"&response_type=vp_token";
-            //    $"&response_uri={Encode(requestUri)}" +
-            //    $"&nonce={session.Nonce}" +
-            //    $"&state={session.State}";
+                $"client_id={Encode(callbackUrl)}" +
+                $"&client_id_scheme=redirect_uri" +
+                $"&response_type=vp_token" +
+                $"&response_mode=direct_post" +
+                $"&response_uri={Encode(callbackUrl)}" +
+                $"&nonce={Encode(session.Nonce)}" +
+                $"&state={Encode(session.State)}" +
+                $"&presentation_definition={Encode(pdJson)}";
+
+            _logger.LogInformation("qr_uri generado | SessionId={SessionId}", session.SessionId);
 
             return Ok(new
             {
                 session_id = session.SessionId,
-                profile = profile,
-                request_uri = requestUri,
-                authorization_request = new { },
+                profile,
                 qr_uri = qrUri
             });
+        }
+
+        private object BuildPresentationDefinition(string profile, string schemaUrl)
+        {
+            object[] fields = profile.ToLower() switch
+            {
+                "empresa" => new object[]
+                {
+                    new { path = new[] { "$.credentialSubject.modalidad" }, filter = new { type = "string" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos" }, filter = new { type = "array" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" }, filter = new { type = "integer" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" }, filter = new { type = "integer" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = new { type = "string" } },
+                    new { path = new[] { "$.credentialSubject.titular.numeroDocumento" }, filter = new { type = "string" } },
+                    new { path = new[] { "$.credentialSubject.titular.nombres" }, filter = new { type = "string" } },
+                    new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
+                },
+                "instituto" => new object[]
+                {
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].notas[*].area" }, filter = new { type = "string", pattern = "ARTE Y CULTURA" } },
+                    new { path = new[] { "$.credentialSubject.titular.numeroDocumento" }, filter = new { type = "string", minLength = 8 } },
+                    new { path = new[] { "$.credentialSubject.titular.nombres" }, filter = new { type = "string", minLength = 2 } },
+                    new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
+                },
+                "entidad-publica" => new object[]
+                {
+                    new { path = new[] { "$.credentialSubject.modalidad" }, filter = new { type = "string" } },
+                    new { path = new[] { "$.credentialSubject.nivel" }, filter = new { type = "string" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos" }, filter = new { type = "array" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" }, filter = new { type = "integer" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" }, filter = new { type = "integer" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = new { type = "string" } },
+                    new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
+                },
+                _ => new object[]
+                {
+                    new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
+                }
+            };
+
+            return new
+            {
+                id = $"pd-{profile.ToLower()}",
+                name = "Validación de Certificado de Estudios",
+                purpose = "Verificar autenticidad, integridad y condiciones de negocio según perfil",
+                input_descriptors = new[]
+                {
+                    new
+                    {
+                        id = $"vc-{profile.ToLower()}",
+                        schema = new[] { schemaUrl },
+                        constraints = new { fields }
+                    }
+                }
+            };
         }
     }
 }
