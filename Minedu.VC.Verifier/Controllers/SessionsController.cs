@@ -83,56 +83,21 @@ namespace Minedu.VC.Verifier.Controllers
             });
         }
 
-        private object BuildPresentationDefinition(string profile, string schemaUrl)
+        private static object BuildPresentationDefinition(string profile, string schemaUrl)
         {
-            object[] fields = profile.ToLower() switch
+            // PD mínimo: solo exige que la VC sea de tipo CertificadoEstudios.
+            // La validación por perfil (grados, notas, situación) se hace server-side en VerificationService.
+            object[] fields = new object[]
             {
-                "empresa" => new object[]
-                {
-                    new { path = new[] { "$.type[*]" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
-                },
-                "instituto" => new object[]
-                {
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].notas[*].area" }, filter = new { type = "string", pattern = "ARTE Y CULTURA" } },
-                    new { path = new[] { "$.credentialSubject.titular.numeroDocumento" } },
-                    new { path = new[] { "$.credentialSubject.titular.nombres" } },
-                    new { path = new[] { "$.type[*]" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
-                },
-                "entidad-publica" => new object[]
-                {
-                    new { path = new[] { "$.credentialSubject.modalidad" } },
-                    new { path = new[] { "$.credentialSubject.nivel" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" } },
-                    new { path = new[] { "$.type[*]" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
-                },
-                _ => new object[]
-                {
-                    new { path = new[] { "$.type[*]" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
-                }
-            };
-
-            var format = new
-            {
-                ldp_vc = new
-                {
-                    proof_type = new[] { "JsonWebSignature2020" }
-                }
+                new { path = new[] { "$.type[*]" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
             };
 
             return new
             {
                 id = "pd",
-                format,
                 input_descriptors = new[]
                 {
-                    new
-                    {
-                        id = "vc",
-                        constraints = new { fields }
-                    }
+                    new { id = "vc", constraints = new { fields } }
                 }
             };
         }
