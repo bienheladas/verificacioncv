@@ -438,7 +438,7 @@ namespace Minedu.VC.Verifier.Services
         // ================================================================
         // NUEVA SECCIÓN: verificación contextual según tipo de entidad
         // ================================================================
-        public Task<VerificationResult> VerifyByProfileAsync(VerificationResult baseResult, string profile, JsonNode? fullVpNode = null)
+        public async Task<VerificationResult> VerifyByProfileAsync(VerificationResult baseResult, string profile, JsonNode? fullVpNode = null)
         {
             _logger.LogInformation("Iniciando verificación contextual | Perfil={Profile} | BaseValid={Valid} | Issuer={Issuer}",
                 profile, baseResult.Valid, baseResult.Issuer);
@@ -447,7 +447,7 @@ namespace Minedu.VC.Verifier.Services
             var issuer = baseResult.Issuer;
             if (string.IsNullOrWhiteSpace(issuer)) {
                 _logger.LogWarning("Issuer faltante en credencial | Perfil={Profile}", profile);
-                return Task.FromResult(Fail("Issuer faltante en la credencial."));
+                return Fail("Issuer faltante en la credencial.");
             }
 
             // === 2. Preparar resultado extendido ===
@@ -498,7 +498,7 @@ namespace Minedu.VC.Verifier.Services
                         break;
                     case "evento":
                         _logger.LogInformation("Aplicando reglas del perfil EVENTO");
-                        ApplyEventoChecks(result, data);
+                        await ApplyEventoChecksAsync(result, data);
                         break;
                     case "entidad-publica":
                         _logger.LogInformation("Aplicando reglas del perfil ENTIDAD PÚBLICA");
@@ -525,13 +525,13 @@ namespace Minedu.VC.Verifier.Services
                     : "";
                 _logger.LogInformation("Verificación contextual finalizada | Perfil={Profile} | Valid={Valid} | Reason={Reason}{GradoInfo}",
                     result.Profile, result.Valid, result.Reason, gradoInfo);
-                return Task.FromResult(result);
+                return result;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en verificación contextual | Perfil={Profile} | Issuer={Issuer}",
                     profile, issuer);
-                return Task.FromResult(Fail($"Error en verificación contextual: {ex.Message}"));
+                return Fail($"Error en verificación contextual: {ex.Message}");
             }
         }
 
@@ -679,13 +679,13 @@ namespace Minedu.VC.Verifier.Services
             };
         }
 
-        private void ApplyEventoChecks(VerificationResult result, Dictionary<string, object> data)
+        private async Task ApplyEventoChecksAsync(VerificationResult result, Dictionary<string, object> data)
         {
             result.Context = "Control de acceso a evento (lista de invitados)";
 
-            var dni     = data.TryGetValue("numeroDocumento", out var d) ? d?.ToString()?.Trim() : null;
-            var nombres = data.TryGetValue("nombres",         out var n) ? n?.ToString()?.Trim() : null;
-            var apellidos = data.TryGetValue("apellidos",     out var a) ? a?.ToString()?.Trim() : null;
+            var dni       = data.TryGetValue("numeroDocumento", out var d) ? d?.ToString()?.Trim() : null;
+            var nombres   = data.TryGetValue("nombres",          out var n) ? n?.ToString()?.Trim() : null;
+            var apellidos = data.TryGetValue("apellidos",        out var a) ? a?.ToString()?.Trim() : null;
 
             // 1. Datos presentes
             bool datosOk = !string.IsNullOrEmpty(dni) && !string.IsNullOrEmpty(nombres);
@@ -710,25 +710,27 @@ namespace Minedu.VC.Verifier.Services
             {
                 Name    = "Lista de invitados",
                 Passed  = esInvitado,
-                Message = esInvitado ? "Participante registrado en la lista del evento" : "El DNI no figura en la lista de invitados"
+                Message = esInvitado ? "Participante en la lista del evento" : "El DNI no figura en la lista de invitados"
             });
 
             if (!esInvitado)
             {
-                result.Valid  = false;
-                result.Reason = "El participante no figura en la lista de invitados del evento";
+                result.Valid   = false;
+                result.Reason  = "El participante no figura en la lista de invitados del evento";
                 result.Summary = new Dictionary<string, object> { ["Nombres"] = nombres! };
                 return;
             }
 
-            // 3. Registrar asistencia
-            var (yaRegistrado, registro) = _attendees.RegistrarAsistencia(dni!, nombres!, apellidos ?? "");
+            // 3. Registrar asistencia en DB
+            var (yaRegistrado, registro) = await _attendees.RegistrarAsistenciaAsync(dni!, nombres!, apellidos ?? "");
+            var horaAcceso = (registro.PrimerAccesoEn ?? DateTime.UtcNow).ToLocalTime();
+
             result.Checks.Add(new VerificationCheck
             {
                 Name    = "Registro de asistencia",
                 Passed  = true,
                 Message = yaRegistrado
-                    ? $"Asistencia ya registrada el {registro!.RegistradoEn:dd/MM/yyyy HH:mm}"
+                    ? $"Asistencia ya registrada el {horaAcceso:dd/MM/yyyy HH:mm} (intento #{registro.IntentosAcceso})"
                     : "Asistencia registrada exitosamente"
             });
 
@@ -738,10 +740,10 @@ namespace Minedu.VC.Verifier.Services
                 : "Participante verificado y asistencia registrada";
             result.Summary = new Dictionary<string, object>
             {
-                ["Nombres"]          = nombres!,
-                ["DNI"]              = dni!,
-                ["YaRegistrado"]     = yaRegistrado,
-                ["RegistradoEn"]     = registro!.RegistradoEn.ToString("dd/MM/yyyy HH:mm")
+                ["Nombres"]      = nombres!,
+                ["DNI"]          = dni!,
+                ["YaRegistrado"] = yaRegistrado,
+                ["RegistradoEn"] = horaAcceso.ToString("dd/MM/yyyy HH:mm")
             };
         }
 

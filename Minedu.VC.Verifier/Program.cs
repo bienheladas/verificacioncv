@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Minedu.VC.Verifier.Data;
 using Minedu.VC.Verifier.Models;
 using Minedu.VC.Verifier.Services;
 using Serilog;
@@ -58,6 +60,10 @@ builder.Host.UseSerilog();
 builder.Services.Configure<VerifierConfig>(
 builder.Configuration.GetSection("Verifier"));
 
+var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContextFactory<VerifierDbContext>(opt =>
+    opt.UseNpgsql(connStr));
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -79,6 +85,14 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Crear tabla cert_asistentes_evento si no existe
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<IDbContextFactory<VerifierDbContext>>()
+                  .CreateDbContext();
+    db.Database.EnsureCreated();
+}
 
 Log.Information("Verifier API iniciado. Entorno: {Env}", app.Environment.EnvironmentName);
 
