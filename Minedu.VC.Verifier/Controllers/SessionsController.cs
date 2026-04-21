@@ -80,30 +80,30 @@ namespace Minedu.VC.Verifier.Controllers
             {
                 "empresa" => new object[]
                 {
-                    new { path = new[] { "$.credentialSubject.modalidad" }, filter = new { type = "string" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos" }, filter = new { type = "array" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" }, filter = new { type = "integer" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" }, filter = new { type = "integer" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = new { type = "string" } },
-                    new { path = new[] { "$.credentialSubject.titular.numeroDocumento" }, filter = new { type = "string" } },
-                    new { path = new[] { "$.credentialSubject.titular.nombres" }, filter = new { type = "string" } },
+                    new { path = new[] { "$.credentialSubject.modalidad" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" } },
+                    new { path = new[] { "$.credentialSubject.titular.numeroDocumento" } },
+                    new { path = new[] { "$.credentialSubject.titular.nombres" } },
                     new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
                 },
                 "instituto" => new object[]
                 {
                     new { path = new[] { "$.credentialSubject.gradosConcluidos[*].notas[*].area" }, filter = new { type = "string", pattern = "ARTE Y CULTURA" } },
-                    new { path = new[] { "$.credentialSubject.titular.numeroDocumento" }, filter = new { type = "string", minLength = 8 } },
-                    new { path = new[] { "$.credentialSubject.titular.nombres" }, filter = new { type = "string", minLength = 2 } },
+                    new { path = new[] { "$.credentialSubject.titular.numeroDocumento" } },
+                    new { path = new[] { "$.credentialSubject.titular.nombres" } },
                     new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
                 },
                 "entidad-publica" => new object[]
                 {
-                    new { path = new[] { "$.credentialSubject.modalidad" }, filter = new { type = "string" } },
-                    new { path = new[] { "$.credentialSubject.nivel" }, filter = new { type = "string" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos" }, filter = new { type = "array" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" }, filter = new { type = "integer" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" }, filter = new { type = "integer" } },
-                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = new { type = "string" } },
+                    new { path = new[] { "$.credentialSubject.modalidad" } },
+                    new { path = new[] { "$.credentialSubject.nivel" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" } },
+                    new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" } },
                     new { path = new[] { "$.type" }, filter = new { type = "string", pattern = "CertificadoEstudios" } }
                 },
                 _ => new object[]
