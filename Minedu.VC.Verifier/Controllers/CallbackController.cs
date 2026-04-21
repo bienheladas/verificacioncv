@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Minedu.VC.Verifier.Models;
 using Minedu.VC.Verifier.Services;
 using System.Text.Json;
 
