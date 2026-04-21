@@ -6,12 +6,6 @@ namespace Minedu.VC.Verifier.Services
 {
     public class AttendeeService
     {
-        private static readonly HashSet<string> _invitados = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "72559262", "72145969", "78959604", "70389552", "73174695",
-            "74534933", "79508236", "73913066", "74015173"
-        };
-
         private readonly IDbContextFactory<VerifierDbContext> _dbFactory;
         private readonly ILogger<AttendeeService> _logger;
 
@@ -21,41 +15,36 @@ namespace Minedu.VC.Verifier.Services
             _logger = logger;
         }
 
-        public bool EsInvitado(string dni) => _invitados.Contains(dni.Trim());
-
-        public async Task<(bool YaRegistrado, AsistenteEvento Registro)> RegistrarAsistenciaAsync(
+        /// <summary>
+        /// Verifica si el DNI está en la tabla de invitados y registra/actualiza la asistencia.
+        /// La fuente de verdad es la DB — no hay lista hardcodeada.
+        /// </summary>
+        public async Task<(bool EsInvitado, bool YaRegistrado, AsistenteEvento? Registro)> VerificarYRegistrarAsync(
             string dni, string nombres, string apellidos)
         {
             var key = dni.Trim();
             await using var db = await _dbFactory.CreateDbContextAsync();
 
             var existente = await db.AsistentesEvento.FirstOrDefaultAsync(a => a.Dni == key);
-            var ahora = DateTime.UtcNow;
-
-            if (existente != null)
+            if (existente == null)
             {
-                existente.Estado          = "YaRegistrado";
-                existente.UltimoAccesoEn  = ahora;
-                existente.IntentosAcceso += 1;
-                await db.SaveChangesAsync();
-                _logger.LogInformation("Asistencia duplicada | DNI={Dni} | Intentos={Intentos}", key, existente.IntentosAcceso);
-                return (true, existente);
+                _logger.LogWarning("DNI no encontrado en lista de invitados | DNI={Dni}", key);
+                return (false, false, null);
             }
 
-            var nuevo = new AsistenteEvento
-            {
-                Dni             = key,
-                Nombres         = nombres,
-                Apellidos       = apellidos,
-                Estado          = "Registrado",
-                PrimerAccesoEn  = ahora,
-                UltimoAccesoEn  = ahora,
-                IntentosAcceso  = 1
-            };
-            db.AsistentesEvento.Add(nuevo);
+            var ahora = DateTime.UtcNow;
+            bool yaRegistrado = existente.Estado == "Registrado" || existente.Estado == "YaRegistrado";
+
+            existente.Estado         = yaRegistrado ? "YaRegistrado" : "Registrado";
+            existente.UltimoAccesoEn = ahora;
+            existente.IntentosAcceso += 1;
+            if (existente.PrimerAccesoEn == null)
+                existente.PrimerAccesoEn = ahora;
+
             await db.SaveChangesAsync();
-            _logger.LogInformation("Asistencia registrada | DNI={Dni} | Nombres={Nombres}", key, nombres);
-            return (false, nuevo);
+            _logger.LogInformation("Asistencia procesada | DNI={Dni} | Estado={Estado} | Intentos={Intentos}",
+                key, existente.Estado, existente.IntentosAcceso);
+            return (true, yaRegistrado, existente);
         }
 
         public async Task<List<AsistenteEvento>> ObtenerAsistentesAsync()

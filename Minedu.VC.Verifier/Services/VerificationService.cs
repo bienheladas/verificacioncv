@@ -704,8 +704,8 @@ namespace Minedu.VC.Verifier.Services
                 return;
             }
 
-            // 2. Está en la lista de invitados
-            bool esInvitado = _attendees.EsInvitado(dni!);
+            // 2. Está en la lista de invitados y registrar asistencia (una sola consulta a DB)
+            var (esInvitado, yaRegistrado, registro) = await _attendees.VerificarYRegistrarAsync(dni!, nombres!, apellidos ?? "");
             result.Checks.Add(new VerificationCheck
             {
                 Name    = "Lista de invitados",
@@ -720,10 +720,7 @@ namespace Minedu.VC.Verifier.Services
                 result.Summary = new Dictionary<string, object> { ["DNI"] = dni! };
                 return;
             }
-
-            // 3. Registrar asistencia en DB
-            var (yaRegistrado, registro) = await _attendees.RegistrarAsistenciaAsync(dni!, nombres!, apellidos ?? "");
-            var horaAcceso = (registro.PrimerAccesoEn ?? DateTime.UtcNow).ToLocalTime();
+            var horaAcceso = (registro!.PrimerAccesoEn ?? DateTime.UtcNow).ToLocalTime();
 
             result.Checks.Add(new VerificationCheck
             {
