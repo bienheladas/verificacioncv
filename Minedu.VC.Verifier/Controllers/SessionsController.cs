@@ -46,17 +46,17 @@ namespace Minedu.VC.Verifier.Controllers
                 {
                     ldp_vc = new
                     {
-                        proof_type = new[] { "Ed25519Signature2020" }
+                        proof_type = new[] { "JsonWebSignature2020" }
                     }
                 }
             };
 
-            // QR con deepLink para obtener el 'Request Object' desde el 'Request Endpoint'
-            //var qrUri = $"openid4vp://authorize?request_uri={Encode(requestUri)}";
+            // client_id_scheme=redirect_uri: client_id es la URL del callback,
+            // no requiere request object firmado (JSON plano es suficiente).
             var qrUri =
                 $"openid4vp://authorize?" +
-                    $"client_id={_config.Did}" +
-                    $"&client_id_scheme=did" +
+                    $"client_id={Encode(callbackUrl)}" +
+                    $"&client_id_scheme=redirect_uri" +
                     $"&client_metadata={Encode(JsonSerializer.Serialize(clientMetadata))}" +
                     $"&request_uri={Encode(requestUri)}";
             //    $"&response_mode=direct_post" +
