@@ -86,12 +86,24 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Crear tabla cert_asistentes_evento si no existe
+// Crear tabla cert_asistentes_evento si no existe (SQL directo, compatible con DB ya existente)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<IDbContextFactory<VerifierDbContext>>()
                   .CreateDbContext();
-    db.Database.EnsureCreated();
+    db.Database.ExecuteSqlRaw("""
+        CREATE TABLE IF NOT EXISTS cert_asistentes_evento (
+            id                SERIAL PRIMARY KEY,
+            dni               VARCHAR(15)  NOT NULL UNIQUE,
+            nombres           VARCHAR(200) NOT NULL,
+            apellidos         VARCHAR(200) NOT NULL DEFAULT '',
+            estado            VARCHAR(30)  NOT NULL DEFAULT 'Pendiente',
+            primer_acceso_en  TIMESTAMP,
+            ultimo_acceso_en  TIMESTAMP,
+            intentos_acceso   INTEGER      NOT NULL DEFAULT 0
+        )
+        """);
+    Log.Information("Tabla cert_asistentes_evento verificada/creada.");
 }
 
 Log.Information("Verifier API iniciado. Entorno: {Env}", app.Environment.EnvironmentName);
