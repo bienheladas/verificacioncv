@@ -37,27 +37,14 @@ namespace Minedu.VC.Verifier.Controllers
 
             string Encode(string v) => Uri.EscapeDataString(v);
 
-            var clientMetadataUri = $"{_config.BaseApiUrl.TrimEnd('/')}/verifier/client-metadata/{profile}";
+            var requestUri = $"{_config.BaseApiUrl.TrimEnd('/')}/verifier/request/{session.SessionId}";
 
-            var pd = BuildPresentationDefinition(profile, schemaUrl);
-            var pdJson = JsonSerializer.Serialize(pd, new JsonSerializerOptions
-            {
-                WriteIndented = false,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            });
-
-            // QR con PD inline y client_metadata_uri separado (más corto que inline client_metadata)
+            // QR corto: wallet descarga el request completo desde request_uri (~240 chars total)
             var qrUri =
                 $"openid4vp://authorize?" +
                 $"client_id={Encode(callbackUrl)}" +
                 $"&client_id_scheme=redirect_uri" +
-                $"&response_type=vp_token" +
-                $"&response_mode=direct_post" +
-                $"&response_uri={Encode(callbackUrl)}" +
-                $"&nonce={Encode(session.Nonce)}" +
-                $"&state={Encode(session.State)}" +
-                $"&client_metadata_uri={Encode(clientMetadataUri)}" +
-                $"&presentation_definition={Encode(pdJson)}";
+                $"&request_uri={Encode(requestUri)}";
 
             session.QrUri = qrUri;
             _logger.LogInformation("qr_uri generado | SessionId={SessionId}", session.SessionId);
