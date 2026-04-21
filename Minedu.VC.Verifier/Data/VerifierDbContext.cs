@@ -28,7 +28,6 @@ namespace Minedu.VC.Verifier.Data
             mb.Entity<EstudiantePadron>(e =>
             {
                 e.ToTable("cert_estudiante_for_vc");
-                e.HasNoKey(); // solo lectura, sin PK compuesta necesaria
                 e.HasKey(p => p.Id);
             });
         }
