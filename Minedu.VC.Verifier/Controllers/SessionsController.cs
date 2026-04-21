@@ -39,6 +39,22 @@ namespace Minedu.VC.Verifier.Controllers
             var presentationDefinition = BuildPresentationDefinition(profile, schemaUrl);
             var pdJson = JsonSerializer.Serialize(presentationDefinition);
 
+            var portalBase = _config.PortalBaseUrl.TrimEnd('/');
+            var logoUrl = $"{portalBase}/assets/empresa-logo.svg";
+            var (clientName, clientContact) = profile.ToLower() switch
+            {
+                "empresa"         => ("TechPerú Empleos S.A.C.", "Área de Recursos Humanos"),
+                "instituto"       => ("Instituto Nacional de Arte del Perú", "Oficina de Admisión"),
+                "entidad-publica" => ("Min. de Trabajo y Promoción del Empleo", "Dir. de Capacitación"),
+                _                 => ("TechPerú Empleos S.A.C.", "Área de Recursos Humanos")
+            };
+            var clientMetadata = JsonSerializer.Serialize(new
+            {
+                client_name = clientName,
+                logo_uri    = logoUrl,
+                contacts    = new[] { clientContact }
+            });
+
             var qrUri =
                 $"openid4vp://authorize?" +
                 $"client_id={Encode(callbackUrl)}" +
@@ -48,6 +64,7 @@ namespace Minedu.VC.Verifier.Controllers
                 $"&response_uri={Encode(callbackUrl)}" +
                 $"&nonce={Encode(session.Nonce)}" +
                 $"&state={Encode(session.State)}" +
+                $"&client_metadata={Encode(clientMetadata)}" +
                 $"&presentation_definition={Encode(pdJson)}";
 
             session.QrUri = qrUri;
