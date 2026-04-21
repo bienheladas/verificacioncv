@@ -49,7 +49,7 @@ namespace Minedu.VC.Verifier.Controllers
 
             // Solo pattern sin type: Inji falla cuando typeof valor !== type (ej. number/object ≠ "string").
             // La validación real de valores se hace server-side en VerificationService.
-            var any = new { pattern = ".*" };
+            var any = new { type = "string", pattern = ".*" };
             var vcType = new { type = "string", pattern = "CertificadoEstudios" };
 
             switch (profile)
