@@ -103,7 +103,21 @@ using (var scope = app.Services.CreateScope())
             intentos_acceso   INTEGER      NOT NULL DEFAULT 0
         )
         """);
-    Log.Information("Tabla cert_asistentes_evento verificada/creada.");
+    db.Database.ExecuteSqlRaw("""
+        INSERT INTO cert_asistentes_evento (dni, nombres, apellidos, estado)
+        VALUES
+            ('72559262', 'LUIS ANDRES',    'PEREZ CCOPA',          'Pendiente'),
+            ('72145969', 'LUIS FERNANDO',  'GONZALEZ RODRIGUEZ',   'Pendiente'),
+            ('78959604', 'CARLOS JOSE',    'VARGAS CONDORI',       'Pendiente'),
+            ('70389552', 'ANTONIO LUIS',   'CHAVEZ ROJAS',         'Pendiente'),
+            ('73174695', 'ROSA LUIS',      'SANCHEZ CHAVEZ',       'Pendiente'),
+            ('74534933', 'RICARDO MIGUEL', 'LOPEZ ROJAS',          'Pendiente'),
+            ('79508236', 'ANA BRENDA',     'GARCIA VEGA',          'Pendiente'),
+            ('73913066', 'JUAN JESSICA',   'VARGAS GARCIA',        'Pendiente'),
+            ('74015173', 'LUIS FERNANDO',  'GONZALEZ RODRIGUEZ',   'Pendiente')
+        ON CONFLICT (dni) DO NOTHING
+        """);
+    Log.Information("Tabla cert_asistentes_evento verificada/creada con lista de invitados.");
 }
 
 Log.Information("Verifier API iniciado. Entorno: {Env}", app.Environment.EnvironmentName);
