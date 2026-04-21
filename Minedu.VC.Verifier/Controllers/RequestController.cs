@@ -49,7 +49,10 @@ namespace Minedu.VC.Verifier.Controllers
 
             // Solo pattern sin type: Inji falla cuando typeof valor !== type (ej. number/object ≠ "string").
             // La validación real de valores se hace server-side en VerificationService.
-            var any = new { type = "string", pattern = ".*" };
+            // Tipos JS correctos: typeof [] === "object", typeof 5 === "number"
+            var str    = new { type = "string", pattern = ".*" };
+            var num    = new { type = "number", pattern = ".*" };
+            var obj    = new { type = "object", pattern = ".*" };
             var vcType = new { type = "string", pattern = "CertificadoEstudios" };
 
             switch (profile)
@@ -57,13 +60,13 @@ namespace Minedu.VC.Verifier.Controllers
                 case "empresa":
                     fields = new object[]
                     {
-                        new { path = new[] { "$.credentialSubject.modalidad" },                          filter = any },
-                        new { path = new[] { "$.credentialSubject.gradosConcluidos" },                   filter = any },
-                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" },          filter = any },
-                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" },           filter = any },
-                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = any },
-                        new { path = new[] { "$.credentialSubject.titular.numeroDocumento" },            filter = any },
-                        new { path = new[] { "$.credentialSubject.titular.nombres" },                   filter = any },
+                        new { path = new[] { "$.credentialSubject.modalidad" },                          filter = str },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos" },                   filter = obj },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" },          filter = num },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" },           filter = num },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = str },
+                        new { path = new[] { "$.credentialSubject.titular.numeroDocumento" },            filter = str },
+                        new { path = new[] { "$.credentialSubject.titular.nombres" },                   filter = str },
                         new { path = new[] { "$.type[*]" },                                             filter = vcType }
                     };
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil empresa.");
@@ -72,9 +75,9 @@ namespace Minedu.VC.Verifier.Controllers
                 case "instituto":
                     fields = new object[]
                     {
-                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].notas[*].area" }, filter = any },
-                        new { path = new[] { "$.credentialSubject.titular.numeroDocumento" },            filter = any },
-                        new { path = new[] { "$.credentialSubject.titular.nombres" },                   filter = any },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].notas[*].area" }, filter = str },
+                        new { path = new[] { "$.credentialSubject.titular.numeroDocumento" },            filter = str },
+                        new { path = new[] { "$.credentialSubject.titular.nombres" },                   filter = str },
                         new { path = new[] { "$.type[*]" },                                             filter = vcType }
                     };
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil instituto.");
@@ -83,12 +86,12 @@ namespace Minedu.VC.Verifier.Controllers
                 case "entidad-publica":
                     fields = new object[]
                     {
-                        new { path = new[] { "$.credentialSubject.modalidad" },                          filter = any },
-                        new { path = new[] { "$.credentialSubject.nivel" },                              filter = any },
-                        new { path = new[] { "$.credentialSubject.gradosConcluidos" },                   filter = any },
-                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" },          filter = any },
-                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" },           filter = any },
-                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = any },
+                        new { path = new[] { "$.credentialSubject.modalidad" },                          filter = str },
+                        new { path = new[] { "$.credentialSubject.nivel" },                              filter = str },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos" },                   filter = obj },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].grado" },          filter = num },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].anio" },           filter = num },
+                        new { path = new[] { "$.credentialSubject.gradosConcluidos[*].situacionFinal" }, filter = str },
                         new { path = new[] { "$.type[*]" },                                             filter = vcType }
                     };
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil entidad-publica.");
