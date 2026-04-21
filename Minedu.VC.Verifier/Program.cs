@@ -65,6 +65,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<string>(logPath);
 builder.Services.AddSingleton<Minedu.VC.Verifier.Services.VerifierJwtService>();
 builder.Services.AddSingleton<SessionService>();
+builder.Services.AddSingleton<Minedu.VC.Verifier.Services.AttendeeService>();
 builder.Services.AddSingleton<VerificationService>();
 builder.Services.AddSingleton<TrustedIssuerService>();
 builder.Services.AddHttpClient<DidWebResolver>();

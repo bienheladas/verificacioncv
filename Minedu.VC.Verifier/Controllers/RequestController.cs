@@ -83,6 +83,16 @@ namespace Minedu.VC.Verifier.Controllers
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil instituto.");
                     break;
 
+                case "evento":
+                    fields = new object[]
+                    {
+                        new { path = new[] { "$.credentialSubject.titular.numeroDocumento" }, filter = str },
+                        new { path = new[] { "$.credentialSubject.titular.nombres" },         filter = str },
+                        new { path = new[] { "$.type[*]" },                                  filter = vcType }
+                    };
+                    _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil evento.");
+                    break;
+
                 case "entidad-publica":
                     fields = new object[]
                     {
@@ -112,6 +122,7 @@ namespace Minedu.VC.Verifier.Controllers
                 "empresa"         => ("TechPerú Empleos S.A.C.", "Área de Recursos Humanos"),
                 "instituto"       => ("Instituto Nacional de Arte del Perú", "Oficina de Admisión"),
                 "entidad-publica" => ("Min. de Trabajo y Promoción del Empleo", "Dir. de Capacitación"),
+                "evento"          => ("Congreso Nacional de Educación 2025", "Secretaría de Registro"),
                 _                 => ("TechPerú Empleos S.A.C.", "Área de Recursos Humanos")
             };
 

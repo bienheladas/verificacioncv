@@ -14,13 +14,15 @@ namespace Minedu.VC.Verifier.Services
     {
         private readonly TrustedIssuerService _trust;
         private readonly DidWebResolver _did;
+        private readonly AttendeeService _attendees;
         private readonly ILogger<VerificationService> _logger;
         private readonly string _logPath;
 
-        public VerificationService(TrustedIssuerService trust, DidWebResolver did, ILogger<VerificationService> logger, string logPath)
+        public VerificationService(TrustedIssuerService trust, DidWebResolver did, AttendeeService attendees, ILogger<VerificationService> logger, string logPath)
         {
             _trust = trust;
             _did = did;
+            _attendees = attendees;
             _logger = logger;
             _logPath = logPath;
         }
@@ -494,6 +496,10 @@ namespace Minedu.VC.Verifier.Services
                         _logger.LogInformation("Aplicando reglas del perfil INSTITUTO");
                         ApplyInstitutoChecks(result, data);
                         break;
+                    case "evento":
+                        _logger.LogInformation("Aplicando reglas del perfil EVENTO");
+                        ApplyEventoChecks(result, data);
+                        break;
                     case "entidad-publica":
                         _logger.LogInformation("Aplicando reglas del perfil ENTIDAD PÚBLICA");
                         ApplyEntidadPublicaChecks(result, data);
@@ -670,6 +676,72 @@ namespace Minedu.VC.Verifier.Services
                 ["Notas de Arte evaluadas"] = totalArteNotas,
                 ["AD/A detectadas"] = notasValidas,
                 ["Todas AD/A"] = aprobadoParaBeca ? "Sí" : "No"
+            };
+        }
+
+        private void ApplyEventoChecks(VerificationResult result, Dictionary<string, object> data)
+        {
+            result.Context = "Control de acceso a evento (lista de invitados)";
+
+            var dni     = data.TryGetValue("numeroDocumento", out var d) ? d?.ToString()?.Trim() : null;
+            var nombres = data.TryGetValue("nombres",         out var n) ? n?.ToString()?.Trim() : null;
+            var apellidos = data.TryGetValue("apellidos",     out var a) ? a?.ToString()?.Trim() : null;
+
+            // 1. Datos presentes
+            bool datosOk = !string.IsNullOrEmpty(dni) && !string.IsNullOrEmpty(nombres);
+            result.Checks.Add(new VerificationCheck
+            {
+                Name    = "Datos del titular",
+                Passed  = datosOk,
+                Message = datosOk ? "Nombres y DNI presentes en la credencial" : "Faltan datos del titular"
+            });
+
+            if (!datosOk)
+            {
+                result.Valid   = false;
+                result.Reason  = "La credencial no contiene los datos requeridos";
+                result.Summary = new Dictionary<string, object> { ["dni"] = dni ?? "—" };
+                return;
+            }
+
+            // 2. Está en la lista de invitados
+            bool esInvitado = _attendees.EsInvitado(dni!);
+            result.Checks.Add(new VerificationCheck
+            {
+                Name    = "Lista de invitados",
+                Passed  = esInvitado,
+                Message = esInvitado ? "Participante registrado en la lista del evento" : "El DNI no figura en la lista de invitados"
+            });
+
+            if (!esInvitado)
+            {
+                result.Valid  = false;
+                result.Reason = "El participante no figura en la lista de invitados del evento";
+                result.Summary = new Dictionary<string, object> { ["Nombres"] = nombres! };
+                return;
+            }
+
+            // 3. Registrar asistencia
+            var (yaRegistrado, registro) = _attendees.RegistrarAsistencia(dni!, nombres!, apellidos ?? "");
+            result.Checks.Add(new VerificationCheck
+            {
+                Name    = "Registro de asistencia",
+                Passed  = true,
+                Message = yaRegistrado
+                    ? $"Asistencia ya registrada el {registro!.RegistradoEn:dd/MM/yyyy HH:mm}"
+                    : "Asistencia registrada exitosamente"
+            });
+
+            result.Valid  = true;
+            result.Reason = yaRegistrado
+                ? "Participante verificado (asistencia ya registrada previamente)"
+                : "Participante verificado y asistencia registrada";
+            result.Summary = new Dictionary<string, object>
+            {
+                ["Nombres"]          = nombres!,
+                ["DNI"]              = dni!,
+                ["YaRegistrado"]     = yaRegistrado,
+                ["RegistradoEn"]     = registro!.RegistradoEn.ToString("dd/MM/yyyy HH:mm")
             };
         }
 
