@@ -12,7 +12,8 @@ namespace Minedu.VC.Verifier.Services
             _config = config.Value;
         }
 
-        public bool IsTrusted(string issuer) =>
+        public bool IsTrusted(string? issuer) =>
+           !string.IsNullOrEmpty(issuer) &&
            _config.TrustedIssuers.Any(i =>
                issuer.StartsWith(i, StringComparison.OrdinalIgnoreCase));
 

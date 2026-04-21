@@ -183,14 +183,27 @@ namespace Minedu.VC.Verifier.Services
                 return Fail("JSON inválido o malformado.");
             }
 
-            // Tu ejemplo trae la VC en: data -> (vc) + proof.jws
-            var data = root["data"] as JsonObject ?? root; // tolerante: si ya viene directo
-            var vc = data["vc"] ?? data; // si ya está en la raíz
-            var proof = data["proof"] ?? vc?["proof"];
+            // Soportar formato Inji VP: { verifiableCredential: [{...VC...}], proof: {...VP proof...} }
+            JsonNode? vc;
+            var vcArray = root["verifiableCredential"] as JsonArray;
+            if (vcArray != null && vcArray.Count > 0)
+            {
+                vc = vcArray[0] as JsonObject;
+                _logger.LogInformation("VC extraída de verifiableCredential[0] (formato OID4VP/Inji)");
+            }
+            else
+            {
+                var data = root["data"] as JsonObject ?? root;
+                vc = data["vc"] ?? data;
+                _logger.LogInformation("VC extraída desde raíz o data.vc");
+            }
+
+            // El proof para verificar es el de la VC (firmado por el issuer)
+            var proof = vc?["proof"];
 
             if (proof is not JsonObject p)
             {
-                _logger.LogWarning("Falta el objeto 'proof' en la presentación.");
+                _logger.LogWarning("Falta el objeto 'proof' en la VC.");
                 return Fail("Falta la prueba de la vc.");
             }
 
@@ -214,14 +227,11 @@ namespace Minedu.VC.Verifier.Services
             if (string.IsNullOrEmpty(issuer))
             {
                 _logger.LogWarning("Issuer ausente en la VC JSON-LD.");
-                checks.Add(new VerificationCheck { Name = "Issuer presente", Passed = false, Message = "Falta issuer" });
-            }
-            else
-            {
-                _logger.LogInformation("Issuer detectado en VC: {Issuer}", issuer);
-                checks.Add(new VerificationCheck { Name = "Issuer presente", Passed = true, Message = "OK" });
+                return Fail("Issuer ausente en la VC");
             }
 
+            _logger.LogInformation("Issuer detectado en VC: {Issuer}", issuer);
+            checks.Add(new VerificationCheck { Name = "Issuer presente", Passed = true, Message = "OK" });
 
             if (!_trust.IsTrusted(issuer))
             {
