@@ -915,7 +915,11 @@ namespace Minedu.VC.Verifier.Services
 
                     var payloadBytes = Encoding.UTF8.GetBytes(payloadWithoutProof);
 
-                    _logger.LogInformation("Se evaluará el payload canonico de la lista de estados. | payloadBytes={payloadBytes} | signature={signature} | key.PublicKey={PublicKey}", Encoding.UTF8.GetString(payloadBytes), signature, key.PublicKey);
+                    _logger.LogInformation("PAYLOAD_HASH_STATUSLIST_VERIFICADOR: {Hash}", Convert.ToHexString(SHA256.HashData(payloadBytes)));
+                    _logger.LogInformation("PAYLOAD_LEN_STATUSLIST_VERIFICADOR: {Len}", payloadBytes.Length);
+                    _logger.LogInformation("PAYLOAD_PREFIX_STATUSLIST_VERIFICADOR: {Prefix}", payloadWithoutProof[..Math.Min(200, payloadWithoutProof.Length)]);
+
+                    _logger.LogInformation("Se evaluará el payload canonico de la lista de estados. | signature={signature} | key.PublicKey={PublicKey}", signature, key.PublicKey);
                     ok = JwsEd25519Verifier.VerifyDetachedJws(protectedHeader, Encoding.UTF8.GetString(payloadBytes), signature, key.PublicKey);
                     _logger.LogInformation("Se evaluó el payload canonico de la lista de estados. | resultado={ok}", ok.ToString());
                 }
