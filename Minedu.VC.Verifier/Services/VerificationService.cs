@@ -895,21 +895,15 @@ namespace Minedu.VC.Verifier.Services
                     // Firma desacoplada → payload = contenido JSON sin codificar
                     // 1) Quitar temporalmente el campo "proof" del JSON antes de verificar la firma
                     _logger.LogInformation("Se quitará el elemento proof del JWS antes de verificar la firma.");
-                    using var parsed = JsonDocument.Parse(jsonText);
-                    using var output = new MemoryStream();
-                    using (var writer = new Utf8JsonWriter(output))
+                    // Quitar proof y ordenar claves (mismo tratamiento que el emisor)
+                    var slNode = JsonNode.Parse(jsonText)!.AsObject();
+                    slNode.Remove("proof");
+                    var slSorted = SortJsonKeys(slNode);
+                    var payloadWithoutProof = JsonSerializer.Serialize(slSorted, new JsonSerializerOptions
                     {
-                        writer.WriteStartObject();
-                        foreach (var prop in parsed.RootElement.EnumerateObject())
-                        {
-                            if (prop.Name.Equals("proof", StringComparison.OrdinalIgnoreCase))
-                                continue; // saltar proof
-                            prop.WriteTo(writer);
-                        }
-                        writer.WriteEndObject();
-                    }
-                    // 2️) Generar string limpio sin proof
-                    var payloadWithoutProof = Encoding.UTF8.GetString(output.ToArray());
+                        WriteIndented = false,
+                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                    });
                     _logger.LogInformation("Se genera un string del payload limpio sin proof. | payloadWithoutProof={payloadWithoutProof}", payloadWithoutProof);
 
                     // 3️) Guardar en disco para comparar
