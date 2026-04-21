@@ -35,7 +35,8 @@ catch (Exception ex)
 
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
-    .Filter.ByExcluding(e => e.RenderMessage().Contains("/verifier/result/"))
+    .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore.Routing", Serilog.Events.LogEventLevel.Warning)
     .WriteTo.Console()
     .WriteTo.File(
         path: Path.Combine(logPath, "verifier-.log"),
