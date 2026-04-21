@@ -284,6 +284,7 @@ namespace Minedu.VC.Verifier.Services
                     var node = JsonNode.Parse(vc!.ToJsonString());
                     node!.AsObject().Remove("proof");
                     RemoveNulls(node);
+                    node = SortJsonKeys(node); // orden determinístico independiente del campo order de Inji
 
                     _logger.LogInformation("Se ha removido el elemento proof de la VC para comparación canónica.");
 
@@ -386,6 +387,25 @@ namespace Minedu.VC.Verifier.Services
             subject ??= node["credentialSubject"]?["titular"]?["numeroDocumento"]?.GetValue<string>();
 
             return subject;
+        }
+
+        private static JsonNode? SortJsonKeys(JsonNode? node)
+        {
+            if (node is JsonObject obj)
+            {
+                var sorted = new JsonObject();
+                foreach (var kv in obj.OrderBy(k => k.Key, StringComparer.Ordinal))
+                    sorted[kv.Key] = SortJsonKeys(kv.Value);
+                return sorted;
+            }
+            if (node is JsonArray arr)
+            {
+                var sortedArr = new JsonArray();
+                foreach (var item in arr)
+                    sortedArr.Add(SortJsonKeys(item));
+                return sortedArr;
+            }
+            return node?.DeepClone();
         }
 
         void RemoveNulls(JsonNode? node)
