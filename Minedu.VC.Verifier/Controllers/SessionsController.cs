@@ -105,11 +105,18 @@ namespace Minedu.VC.Verifier.Controllers
                 }
             };
 
+            var format = new
+            {
+                ldp_vc = new
+                {
+                    proof_type = new[] { "JsonWebSignature2020" }
+                }
+            };
+
             return new
             {
                 id = $"pd-{profile.ToLower()}",
-                name = "Validación de Certificado de Estudios",
-                purpose = "Verificar autenticidad, integridad y condiciones de negocio según perfil",
+                format,
                 input_descriptors = new[]
                 {
                     new
