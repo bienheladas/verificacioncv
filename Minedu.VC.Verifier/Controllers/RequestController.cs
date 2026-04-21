@@ -93,6 +93,18 @@ namespace Minedu.VC.Verifier.Controllers
                     _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil evento.");
                     break;
 
+                case "pae":
+                    fields = new object[]
+                    {
+                        new { path = new[] { "$.credentialSubject.modalidad" },                filter = str },
+                        new { path = new[] { "$.credentialSubject.nivel" },                    filter = str },
+                        new { path = new[] { "$.credentialSubject.titular.numeroDocumento" },  filter = str },
+                        new { path = new[] { "$.credentialSubject.titular.nombres" },          filter = str },
+                        new { path = new[] { "$.type[*]" },                                   filter = vcType }
+                    };
+                    _logger.LogInformation("Arma solicitud de datos requeridos para validación de perfil PAE.");
+                    break;
+
                 case "entidad-publica":
                     fields = new object[]
                     {
@@ -123,6 +135,7 @@ namespace Minedu.VC.Verifier.Controllers
                 "instituto"       => ("Instituto Nacional de Arte del Perú", "Oficina de Admisión"),
                 "entidad-publica" => ("Min. de Trabajo y Promoción del Empleo", "Dir. de Capacitación"),
                 "evento"          => ("Congreso Nacional de Educación 2025", "Secretaría de Registro"),
+                "pae"             => ("Proveedor Qali Warma – Camión C-042", "Programa de Alimentación Escolar"),
                 _                 => ("TechPerú Empleos S.A.C.", "Área de Recursos Humanos")
             };
 

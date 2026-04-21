@@ -25,6 +25,7 @@ namespace Minedu.VC.Verifier.Controllers
                 "instituto"       => ("Instituto Nacional de Arte del Perú", "Oficina de Admisión"),
                 "entidad-publica" => ("Min. de Trabajo y Promoción del Empleo", "Dir. de Capacitación"),
                 "evento"          => ("Congreso Nacional de Educación 2025", "Secretaría de Registro"),
+                "pae"             => ("Proveedor Qali Warma – Camión C-042", "Programa de Alimentación Escolar"),
                 _                 => ("TechPerú Empleos S.A.C.", "Área de Recursos Humanos")
             };
 

@@ -15,14 +15,16 @@ namespace Minedu.VC.Verifier.Services
         private readonly TrustedIssuerService _trust;
         private readonly DidWebResolver _did;
         private readonly AttendeeService _attendees;
+        private readonly PaeService _pae;
         private readonly ILogger<VerificationService> _logger;
         private readonly string _logPath;
 
-        public VerificationService(TrustedIssuerService trust, DidWebResolver did, AttendeeService attendees, ILogger<VerificationService> logger, string logPath)
+        public VerificationService(TrustedIssuerService trust, DidWebResolver did, AttendeeService attendees, PaeService pae, ILogger<VerificationService> logger, string logPath)
         {
             _trust = trust;
             _did = did;
             _attendees = attendees;
+            _pae = pae;
             _logger = logger;
             _logPath = logPath;
         }
@@ -500,6 +502,10 @@ namespace Minedu.VC.Verifier.Services
                         _logger.LogInformation("Aplicando reglas del perfil EVENTO");
                         await ApplyEventoChecksAsync(result, data);
                         break;
+                    case "pae":
+                        _logger.LogInformation("Aplicando reglas del perfil PAE");
+                        await ApplyPaeChecksAsync(result, data);
+                        break;
                     case "entidad-publica":
                         _logger.LogInformation("Aplicando reglas del perfil ENTIDAD PÚBLICA");
                         ApplyEntidadPublicaChecks(result, data);
@@ -741,6 +747,97 @@ namespace Minedu.VC.Verifier.Services
                 ["DNI"]          = dni!,
                 ["YaRegistrado"] = yaRegistrado,
                 ["RegistradoEn"] = horaAcceso.ToString("dd/MM/yyyy HH:mm")
+            };
+        }
+
+        private async Task ApplyPaeChecksAsync(VerificationResult result, Dictionary<string, object> data)
+        {
+            result.Context = "Control de desayuno escolar Qali Warma (PAE)";
+
+            var dni       = data.TryGetValue("numeroDocumento", out var d) ? d?.ToString()?.Trim() : null;
+            var nombres   = data.TryGetValue("nombres",          out var n) ? n?.ToString()?.Trim() : null;
+            var apellidos = data.TryGetValue("apellidos",        out var a) ? a?.ToString()?.Trim() : null;
+            var modalidad = data.TryGetValue("modalidad",        out var m) ? m?.ToString()?.Trim() : null;
+            var nivel     = data.TryGetValue("nivel",            out var nv) ? nv?.ToString()?.Trim() : null;
+
+            // 1. Nivel B0 y modalidad EBR
+            bool nivelOk = string.Equals(nivel,     "B0",  StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(modalidad, "EBR", StringComparison.OrdinalIgnoreCase);
+            result.Checks.Add(new VerificationCheck
+            {
+                Name    = "Nivel educativo",
+                Passed  = nivelOk,
+                Message = nivelOk
+                    ? $"Estudiante de primaria (EBR / {nivel})"
+                    : $"Nivel no corresponde a primaria (modalidad={modalidad}, nivel={nivel})"
+            });
+
+            if (!nivelOk)
+            {
+                result.Valid  = false;
+                result.Reason = "La credencial no corresponde a un estudiante de primaria EBR";
+                return;
+            }
+
+            if (string.IsNullOrEmpty(dni))
+            {
+                result.Valid  = false;
+                result.Reason = "DNI no presente en la credencial";
+                return;
+            }
+
+            // 2. Horario Lima 6am–12pm (solo informamos, el registro igual se hace)
+            PaeService.EsHorarioValido(out var horaLima);
+            bool enHorario = horaLima.Hour >= 6 && horaLima.Hour < 12;
+            result.Checks.Add(new VerificationCheck
+            {
+                Name    = "Horario de distribución",
+                Passed  = enHorario,
+                Message = enHorario
+                    ? $"Dentro del horario permitido ({horaLima:HH:mm} Lima)"
+                    : $"Fuera del horario permitido — son las {horaLima:HH:mm} Lima (permitido 06:00–12:00)"
+            });
+
+            // 3. Padrón + una vez por día (consulta DB y registra)
+            var verif = await _pae.VerificarYRegistrarAsync(dni, nombres ?? "", apellidos ?? "", registrar: true);
+
+            result.Checks.Add(new VerificationCheck
+            {
+                Name    = "Padrón escolar",
+                Passed  = verif.EnPadron,
+                Message = verif.EnPadron ? "Estudiante en el padrón de primaria" : $"DNI {dni} no figura en el padrón escolar"
+            });
+
+            if (!verif.EnPadron)
+            {
+                result.Valid  = false;
+                result.Reason = $"El DNI {dni} no figura en el padrón escolar";
+                result.Summary = new Dictionary<string, object> { ["DNI"] = dni };
+                return;
+            }
+
+            result.Checks.Add(new VerificationCheck
+            {
+                Name    = "Retiro del día",
+                Passed  = !verif.YaRecogio,
+                Message = verif.YaRecogio
+                    ? "El desayuno ya fue retirado hoy"
+                    : "Primer retiro del día"
+            });
+
+            bool aprobado = enHorario && !verif.YaRecogio;
+            result.Valid  = aprobado;
+            result.Reason = !enHorario    ? $"Fuera del horario de distribución (son las {horaLima:HH:mm} Lima)"
+                          : verif.YaRecogio ? "El desayuno ya fue retirado hoy"
+                          : "Desayuno entregado correctamente";
+
+            result.Summary = new Dictionary<string, object>
+            {
+                ["Nombres"]      = nombres ?? "—",
+                ["DNI"]          = dni,
+                ["NumeroCamion"] = verif.Registro?.NumeroCamion ?? "C-042",
+                ["HoraRecojo"]   = horaLima.ToString("HH:mm"),
+                ["YaRecogio"]    = verif.YaRecogio
             };
         }
 

@@ -7,7 +7,9 @@ namespace Minedu.VC.Verifier.Data
     {
         public VerifierDbContext(DbContextOptions<VerifierDbContext> options) : base(options) { }
 
-        public DbSet<AsistenteEvento> AsistentesEvento => Set<AsistenteEvento>();
+        public DbSet<AsistenteEvento>   AsistentesEvento  => Set<AsistenteEvento>();
+        public DbSet<RecojoDesayuno>    RecojosDesayuno   => Set<RecojoDesayuno>();
+        public DbSet<EstudiantePadron>  EstudiantesPadron => Set<EstudiantePadron>();
 
         protected override void OnModelCreating(ModelBuilder mb)
         {
@@ -15,6 +17,19 @@ namespace Minedu.VC.Verifier.Data
             {
                 e.ToTable("cert_asistentes_evento");
                 e.HasIndex(a => a.Dni).IsUnique();
+            });
+
+            mb.Entity<RecojoDesayuno>(e =>
+            {
+                e.ToTable("cert_recojo_desayuno");
+                e.HasIndex(r => new { r.Dni, r.FechaRecojo });
+            });
+
+            mb.Entity<EstudiantePadron>(e =>
+            {
+                e.ToTable("cert_estudiante_for_vc");
+                e.HasNoKey(); // solo lectura, sin PK compuesta necesaria
+                e.HasKey(p => p.Id);
             });
         }
     }

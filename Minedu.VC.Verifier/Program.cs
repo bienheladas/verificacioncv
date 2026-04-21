@@ -72,6 +72,7 @@ builder.Services.AddSingleton<string>(logPath);
 builder.Services.AddSingleton<Minedu.VC.Verifier.Services.VerifierJwtService>();
 builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton<Minedu.VC.Verifier.Services.AttendeeService>();
+builder.Services.AddSingleton<Minedu.VC.Verifier.Services.PaeService>();
 builder.Services.AddSingleton<VerificationService>();
 builder.Services.AddSingleton<TrustedIssuerService>();
 builder.Services.AddHttpClient<DidWebResolver>();
@@ -118,6 +119,23 @@ using (var scope = app.Services.CreateScope())
         ON CONFLICT (dni) DO NOTHING
         """);
     Log.Information("Tabla cert_asistentes_evento verificada/creada con lista de invitados.");
+
+    db.Database.ExecuteSqlRaw("""
+        CREATE TABLE IF NOT EXISTS cert_recojo_desayuno (
+            id               SERIAL PRIMARY KEY,
+            dni              VARCHAR(15)  NOT NULL,
+            nombres          VARCHAR(200) NOT NULL,
+            apellidos        VARCHAR(200) NOT NULL DEFAULT '',
+            numero_camion    VARCHAR(20)  NOT NULL DEFAULT '',
+            fecha_recojo     DATE         NOT NULL,
+            hora_recojo      TIMESTAMP    NOT NULL,
+            estado           VARCHAR(20)  NOT NULL DEFAULT 'Aprobado',
+            motivo_rechazo   VARCHAR(200)
+        )
+        """);
+    db.Database.ExecuteSqlRaw(
+        "CREATE INDEX IF NOT EXISTS idx_recojo_dni_fecha ON cert_recojo_desayuno (dni, fecha_recojo)");
+    Log.Information("Tabla cert_recojo_desayuno verificada/creada.");
 }
 
 Log.Information("Verifier API iniciado. Entorno: {Env}", app.Environment.EnvironmentName);
