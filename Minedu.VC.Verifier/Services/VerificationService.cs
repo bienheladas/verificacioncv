@@ -343,6 +343,36 @@ namespace Minedu.VC.Verifier.Services
             _logger.LogInformation("Firma Ed25519 válida para issuer {Issuer}", issuer);
             checks.Add(new VerificationCheck { Name = "Firma de la VC", Passed = ok, Message = ok ? "OK" : "Inválida" });
 
+            // 🔍 Holder binding: verificar que la VP fue firmada por el titular de la VC
+            var holderDid = vc?["credentialSubject"]?["id"]?.GetValue<string>();
+            if (!string.IsNullOrEmpty(holderDid))
+            {
+                _logger.LogInformation("VC tiene holder binding | HolderDid={HolderDid}", holderDid);
+                var vpProof = root["proof"] as JsonObject;
+                var (holderOk, holderMsg) = VerifyHolderBinding(root, vpProof, holderDid);
+                checks.Add(new VerificationCheck
+                {
+                    Name    = "Holder binding",
+                    Passed  = holderOk,
+                    Message = holderMsg
+                });
+                if (!holderOk)
+                {
+                    _logger.LogWarning("Fallo holder binding: {Msg}", holderMsg);
+                    return new VerificationResult
+                    {
+                        Valid    = false,
+                        Reason   = holderMsg,
+                        Issuer   = issuer,
+                        Checks   = checks
+                    };
+                }
+            }
+            else
+            {
+                _logger.LogInformation("VC sin holder binding — omitiendo verificación de titular.");
+            }
+
             // 🔍 Verificación formal del estado (BitstringStatusList)
             _logger.LogInformation("Verificando estado en lista de revocación (BitstringStatusList).");
             var (validStatus, statusValue, purpose) = await VerifyCredentialStatusAsync(vc);
@@ -1177,6 +1207,92 @@ namespace Minedu.VC.Verifier.Services
             {
                 _logger.LogError("Excepcion No Controlada: {Message}.", ex.Message);
                 return (false, $"exception:{ex.Message}", "unknown");
+            }
+        }
+
+        // Verifica que la VP fue firmada por el mismo DID que está en credentialSubject.id
+        private (bool ok, string message) VerifyHolderBinding(JsonObject vpRoot, JsonObject? vpProof, string holderDid)
+        {
+            try
+            {
+                if (vpProof == null)
+                    return (false, "La VP no contiene proof — no se puede verificar holder binding");
+
+                var vpJws = vpProof["jws"]?.GetValue<string>();
+                var vpVm  = vpProof["verificationMethod"]?.GetValue<string>();
+
+                if (string.IsNullOrEmpty(vpJws) || string.IsNullOrEmpty(vpVm))
+                    return (false, "VP proof incompleto (falta jws o verificationMethod)");
+
+                // El verificationMethod de la VP debe pertenecer al holderDid
+                var vmDid = vpVm.Split('#')[0];
+                if (!string.Equals(vmDid, holderDid, StringComparison.OrdinalIgnoreCase))
+                    return (false, $"Presentador ({vmDid}) no coincide con titular de la VC ({holderDid})");
+
+                // Extraer clave pública del did:jwk
+                var holderKey = ResolveDIDJwkKey(holderDid);
+                if (holderKey == null)
+                    return (false, $"No se pudo resolver la clave pública del holder DID: {holderDid}");
+
+                // Verificar firma de la VP (mismo patrón detached que la VC)
+                var vpParts = vpJws.Split('.');
+                if (vpParts.Length != 3)
+                    return (false, "Formato JWS inválido en VP proof");
+
+                var protectedHeader = vpParts[0];
+
+                // Payload = VP sin proof, ordenado canónicamente
+                var vpCopy = JsonNode.Parse(vpRoot.ToJsonString())!.AsObject();
+                vpCopy.Remove("proof");
+                RemoveNulls(vpCopy);
+                var vpSorted = SortJsonKeys(vpCopy);
+                var vpPayload = JsonSerializer.Serialize(vpSorted, new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+                });
+
+                bool vpOk;
+                if (JwsEd25519Verifier.IsDetached(protectedHeader))
+                    vpOk = JwsEd25519Verifier.VerifyDetachedJws(protectedHeader, vpPayload, vpParts[2], holderKey);
+                else
+                    vpOk = JwsEd25519Verifier.VerifyCompactJws(vpJws, holderKey);
+
+                return vpOk
+                    ? (true,  "VP firmada por el titular de la credencial")
+                    : (false, "Firma de la VP inválida — no corresponde al titular");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al verificar holder binding");
+                return (false, $"Error verificando holder binding: {ex.Message}");
+            }
+        }
+
+        // Decodifica did:jwk:<base64url(jwk)> → bytes clave pública Ed25519
+        private static byte[]? ResolveDIDJwkKey(string did)
+        {
+            try
+            {
+                if (!did.StartsWith("did:jwk:")) return null;
+                var encoded = did["did:jwk:".Length..];
+
+                // base64url → JWK JSON
+                var s = encoded.Replace('-', '+').Replace('/', '_');  // undo url-safe
+                // Nota: did:jwk usa base64url (sin padding), aquí es base64 estándar
+                var padded = encoded.Replace('-', '+').Replace('_', '/');
+                padded += (padded.Length % 4) switch { 2 => "==", 3 => "=", _ => "" };
+                var jwkJson = Encoding.UTF8.GetString(Convert.FromBase64String(padded));
+
+                using var doc = JsonDocument.Parse(jwkJson);
+                var xEl = doc.RootElement.GetProperty("x");
+                var xPadded = xEl.GetString()!.Replace('-', '+').Replace('_', '/');
+                xPadded += (xPadded.Length % 4) switch { 2 => "==", 3 => "=", _ => "" };
+                return Convert.FromBase64String(xPadded);
+            }
+            catch
+            {
+                return null;
             }
         }
 
