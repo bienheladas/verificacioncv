@@ -1241,16 +1241,14 @@ namespace Minedu.VC.Verifier.Services
 
                 var protectedHeader = vpParts[0];
 
-                // Payload = VP sin proof, ordenado canónicamente
+                // Payload = VP sin proof, con el orden de campos original de Inji (no canónico)
+                // NO ordenar ni quitar nulls: Inji firma con su serialización original
                 var vpCopy = JsonNode.Parse(vpRoot.ToJsonString())!.AsObject();
                 vpCopy.Remove("proof");
-                RemoveNulls(vpCopy);
-                var vpSorted = SortJsonKeys(vpCopy);
-                var vpPayload = JsonSerializer.Serialize(vpSorted, new JsonSerializerOptions
-                {
-                    WriteIndented = false,
-                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-                });
+                var vpPayload = JsonSerializer.Serialize(vpCopy, new JsonSerializerOptions { WriteIndented = false });
+                _logger.LogInformation("VP payload para verificar holder binding | len={Len} | hash={Hash}",
+                    vpPayload.Length,
+                    Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(vpPayload))));
 
                 bool vpOk;
                 if (JwsEd25519Verifier.IsDetached(protectedHeader))
