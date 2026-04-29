@@ -84,6 +84,7 @@ namespace Minedu.VC.Verifier.Services
 
                     if (string.Equals(crv, "Ed25519", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(x))
                     {
+                        _logger.LogInformation("PUBKEY_X_DID: {X}", x);
                         return new ResolvedKey
                         {
                             Kid = vm.Id,
