@@ -1260,7 +1260,8 @@ namespace Minedu.VC.Verifier.Services
 
                 bool vpOk;
                 if (JwsEd25519Verifier.IsDetached(protectedHeader))
-                    vpOk = JwsEd25519Verifier.VerifyDetachedJws(protectedHeader, vpPayload, vpParts[2], holderKey);
+                    // Usar bytes UTF-8 directamente: Inji firma con chars literales, no \uXXXX
+                    vpOk = JwsEd25519Verifier.VerifyDetachedJwsRawBytes(protectedHeader, vpPayloadBytes, vpParts[2], holderKey);
                 else
                     vpOk = JwsEd25519Verifier.VerifyCompactJws(vpJws, holderKey);
 

@@ -46,17 +46,27 @@ namespace Minedu.VC.Verifier.Services
 
         public static bool VerifyDetachedJws(string protectedHeaderB64, string detachedPayload, string signatureB64, byte[] publicKey)
         {
-            // UTF-8 (no ASCII) para soportar caracteres no-ASCII literales en el payload (ej. nombres con tilde)
-            var headerBytes = Encoding.UTF8.GetBytes(protectedHeaderB64 + ".");
-            var payloadBytes = Encoding.UTF8.GetBytes(detachedPayload);
-            var signingInput = new byte[headerBytes.Length + payloadBytes.Length];
-            Buffer.BlockCopy(headerBytes, 0, signingInput, 0, headerBytes.Length);
-            Buffer.BlockCopy(payloadBytes, 0, signingInput, headerBytes.Length, payloadBytes.Length);
+            // ASCII para JSON canónico de VC (el emisor también usa ASCII para el signing input)
+            var signingInput = Encoding.ASCII.GetBytes($"{protectedHeaderB64}.{detachedPayload}");
             var signature = Base64UrlDecode(signatureB64);
 
             var alg = SignatureAlgorithm.Ed25519;
             var pubKey = PublicKey.Import(alg, publicKey, KeyBlobFormat.RawPublicKey);
 
+            return alg.Verify(pubKey, signingInput, signature);
+        }
+
+        // Versión para VP holder binding: el payload ya viene como bytes UTF-8 (de JSON sin \uXXXX escaping)
+        public static bool VerifyDetachedJwsRawBytes(string protectedHeaderB64, byte[] payloadBytes, string signatureB64, byte[] publicKey)
+        {
+            var headerPart = Encoding.ASCII.GetBytes(protectedHeaderB64 + ".");
+            var signingInput = new byte[headerPart.Length + payloadBytes.Length];
+            Buffer.BlockCopy(headerPart, 0, signingInput, 0, headerPart.Length);
+            Buffer.BlockCopy(payloadBytes, 0, signingInput, headerPart.Length, payloadBytes.Length);
+
+            var signature = Base64UrlDecode(signatureB64);
+            var alg = SignatureAlgorithm.Ed25519;
+            var pubKey = PublicKey.Import(alg, publicKey, KeyBlobFormat.RawPublicKey);
             return alg.Verify(pubKey, signingInput, signature);
         }
 
