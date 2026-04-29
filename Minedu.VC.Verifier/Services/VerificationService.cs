@@ -447,11 +447,11 @@ namespace Minedu.VC.Verifier.Services
         {
             if (node is JsonObject obj)
             {
-                // recopila las claves con valor null
+                // recopila las claves con valor null (C# null O JsonValue que representa JSON null)
                 var keysToRemove = new List<string>();
                 foreach (var kv in obj)
                 {
-                    if (kv.Value is null)
+                    if (kv.Value is null || kv.Value.GetValueKind() == JsonValueKind.Null)
                         keysToRemove.Add(kv.Key);
                 }
                 foreach (var key in keysToRemove)
