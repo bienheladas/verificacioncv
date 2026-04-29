@@ -3,6 +3,7 @@ using Minedu.VC.Verifier.Models;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -1241,14 +1242,21 @@ namespace Minedu.VC.Verifier.Services
 
                 var protectedHeader = vpParts[0];
 
-                // Payload = VP sin proof, con el orden de campos original de Inji (no canónico)
-                // NO ordenar ni quitar nulls: Inji firma con su serialización original
+                // Payload = VP sin proof. Inji serializa con caracteres UTF-8 literales (no \uXXXX).
+                // Usar UnsafeRelaxedJsonEscaping para no escapar á,é,ñ etc. y luego UTF-8 bytes.
                 var vpCopy = JsonNode.Parse(vpRoot.ToJsonString())!.AsObject();
                 vpCopy.Remove("proof");
-                var vpPayload = JsonSerializer.Serialize(vpCopy, new JsonSerializerOptions { WriteIndented = false });
-                _logger.LogInformation("VP payload para verificar holder binding | len={Len} | hash={Hash}",
+                var relaxedOptions = new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                var vpPayload = JsonSerializer.Serialize(vpCopy, relaxedOptions);
+                var vpPayloadBytes = Encoding.UTF8.GetBytes(vpPayload);
+                _logger.LogInformation("VP payload para verificar holder binding | len={Len} | hash={Hash} | prefix={Prefix}",
                     vpPayload.Length,
-                    Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(vpPayload))));
+                    Convert.ToHexString(SHA256.HashData(vpPayloadBytes)),
+                    vpPayload[..Math.Min(200, vpPayload.Length)]);
 
                 bool vpOk;
                 if (JwsEd25519Verifier.IsDetached(protectedHeader))

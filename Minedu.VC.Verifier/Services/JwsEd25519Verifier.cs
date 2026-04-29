@@ -46,7 +46,12 @@ namespace Minedu.VC.Verifier.Services
 
         public static bool VerifyDetachedJws(string protectedHeaderB64, string detachedPayload, string signatureB64, byte[] publicKey)
         {
-            var signingInput = Encoding.ASCII.GetBytes($"{protectedHeaderB64}.{detachedPayload}");
+            // UTF-8 (no ASCII) para soportar caracteres no-ASCII literales en el payload (ej. nombres con tilde)
+            var headerBytes = Encoding.UTF8.GetBytes(protectedHeaderB64 + ".");
+            var payloadBytes = Encoding.UTF8.GetBytes(detachedPayload);
+            var signingInput = new byte[headerBytes.Length + payloadBytes.Length];
+            Buffer.BlockCopy(headerBytes, 0, signingInput, 0, headerBytes.Length);
+            Buffer.BlockCopy(payloadBytes, 0, signingInput, headerBytes.Length, payloadBytes.Length);
             var signature = Base64UrlDecode(signatureB64);
 
             var alg = SignatureAlgorithm.Ed25519;
