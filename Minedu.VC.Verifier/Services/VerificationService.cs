@@ -1225,6 +1225,9 @@ namespace Minedu.VC.Verifier.Services
                 if (string.IsNullOrEmpty(vpJws) || string.IsNullOrEmpty(vpVm))
                     return (false, "VP proof incompleto (falta jws o verificationMethod)");
 
+                _logger.LogInformation("VP proof jws (primeros 120): {VpJws}", vpJws[..Math.Min(120, vpJws.Length)]);
+                _logger.LogInformation("VP proof verificationMethod: {VpVm}", vpVm);
+
                 // El verificationMethod de la VP debe pertenecer al holderDid
                 var vmDid = vpVm.Split('#')[0];
                 if (!string.Equals(vmDid, holderDid, StringComparison.OrdinalIgnoreCase))
@@ -1235,12 +1238,23 @@ namespace Minedu.VC.Verifier.Services
                 if (holderKey == null)
                     return (false, $"No se pudo resolver la clave pública del holder DID: {holderDid}");
 
+                _logger.LogInformation("Holder public key (base64): {HolderKey}", Convert.ToBase64String(holderKey));
+
                 // Verificar firma de la VP (mismo patrón detached que la VC)
                 var vpParts = vpJws.Split('.');
                 if (vpParts.Length != 3)
                     return (false, "Formato JWS inválido en VP proof");
 
                 var protectedHeader = vpParts[0];
+                bool isDetached = JwsEd25519Verifier.IsDetached(protectedHeader);
+                try
+                {
+                    var decodedHeader = Encoding.UTF8.GetString(Convert.FromBase64String(
+                        protectedHeader.Replace('-', '+').Replace('_', '/') +
+                        new string('=', (4 - protectedHeader.Length % 4) % 4)));
+                    _logger.LogInformation("VP JWS header decodificado: {Header} | IsDetached={IsDetached}", decodedHeader, isDetached);
+                }
+                catch { _logger.LogWarning("No se pudo decodificar el VP JWS header"); }
 
                 // Payload = VP sin proof. Inji serializa con caracteres UTF-8 literales (no \uXXXX).
                 // Usar UnsafeRelaxedJsonEscaping para no escapar á,é,ñ etc. y luego UTF-8 bytes.
@@ -1253,17 +1267,20 @@ namespace Minedu.VC.Verifier.Services
                 };
                 var vpPayload = JsonSerializer.Serialize(vpCopy, relaxedOptions);
                 var vpPayloadBytes = Encoding.UTF8.GetBytes(vpPayload);
+                _logger.LogInformation("VPPAYLOAD_FULL_VERIFICADOR: {Payload}", vpPayload);
                 _logger.LogInformation("VP payload para verificar holder binding | len={Len} | hash={Hash} | prefix={Prefix}",
                     vpPayload.Length,
                     Convert.ToHexString(SHA256.HashData(vpPayloadBytes)),
                     vpPayload[..Math.Min(200, vpPayload.Length)]);
 
                 bool vpOk;
-                if (JwsEd25519Verifier.IsDetached(protectedHeader))
+                if (isDetached)
                     // Usar bytes UTF-8 directamente: Inji firma con chars literales, no \uXXXX
                     vpOk = JwsEd25519Verifier.VerifyDetachedJwsRawBytes(protectedHeader, vpPayloadBytes, vpParts[2], holderKey);
                 else
                     vpOk = JwsEd25519Verifier.VerifyCompactJws(vpJws, holderKey);
+
+                _logger.LogInformation("Resultado verificación VP firma: {VpOk}", vpOk);
 
                 return vpOk
                     ? (true,  "VP firmada por el titular de la credencial")
