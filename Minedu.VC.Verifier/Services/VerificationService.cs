@@ -350,7 +350,7 @@ namespace Minedu.VC.Verifier.Services
             {
                 _logger.LogInformation("VC tiene holder binding | HolderDid={HolderDid}", holderDid);
                 var vpProof = root["proof"] as JsonObject;
-                var (holderOk, holderMsg) = VerifyHolderBinding(root, vpProof, holderDid);
+                var (holderOk, holderMsg) = VerifyHolderBinding(root, vpProof, holderDid, json);
                 checks.Add(new VerificationCheck
                 {
                     Name    = "Holder binding",
@@ -1212,7 +1212,7 @@ namespace Minedu.VC.Verifier.Services
         }
 
         // Verifica que la VP fue firmada por el mismo DID que está en credentialSubject.id
-        private (bool ok, string message) VerifyHolderBinding(JsonObject vpRoot, JsonObject? vpProof, string holderDid)
+        private (bool ok, string message) VerifyHolderBinding(JsonObject vpRoot, JsonObject? vpProof, string holderDid, string rawVpJson)
         {
             try
             {
@@ -1228,19 +1228,16 @@ namespace Minedu.VC.Verifier.Services
                 _logger.LogInformation("VP proof jws (primeros 120): {VpJws}", vpJws[..Math.Min(120, vpJws.Length)]);
                 _logger.LogInformation("VP proof verificationMethod: {VpVm}", vpVm);
 
-                // El verificationMethod de la VP debe pertenecer al holderDid
                 var vmDid = vpVm.Split('#')[0];
                 if (!string.Equals(vmDid, holderDid, StringComparison.OrdinalIgnoreCase))
                     return (false, $"Presentador ({vmDid}) no coincide con titular de la VC ({holderDid})");
 
-                // Extraer clave pública del did:jwk
                 var holderKey = ResolveDIDJwkKey(holderDid);
                 if (holderKey == null)
                     return (false, $"No se pudo resolver la clave pública del holder DID: {holderDid}");
 
                 _logger.LogInformation("Holder public key (base64): {HolderKey}", Convert.ToBase64String(holderKey));
 
-                // Verificar firma de la VP (mismo patrón detached que la VC)
                 var vpParts = vpJws.Split('.');
                 if (vpParts.Length != 3)
                     return (false, "Formato JWS inválido en VP proof");
@@ -1256,31 +1253,40 @@ namespace Minedu.VC.Verifier.Services
                 }
                 catch { _logger.LogWarning("No se pudo decodificar el VP JWS header"); }
 
-                // Payload = VP sin proof. Inji serializa con caracteres UTF-8 literales (no \uXXXX).
-                // Usar UnsafeRelaxedJsonEscaping para no escapar á,é,ñ etc. y luego UTF-8 bytes.
-                var vpCopy = JsonNode.Parse(vpRoot.ToJsonString())!.AsObject();
-                vpCopy.Remove("proof");
-                var relaxedOptions = new JsonSerializerOptions
-                {
-                    WriteIndented = false,
-                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                };
-                var vpPayload = JsonSerializer.Serialize(vpCopy, relaxedOptions);
-                var vpPayloadBytes = Encoding.UTF8.GetBytes(vpPayload);
-                _logger.LogInformation("VPPAYLOAD_FULL_VERIFICADOR: {Payload}", vpPayload);
-                _logger.LogInformation("VP payload para verificar holder binding | len={Len} | hash={Hash} | prefix={Prefix}",
-                    vpPayload.Length,
-                    Convert.ToHexString(SHA256.HashData(vpPayloadBytes)),
-                    vpPayload[..Math.Min(200, vpPayload.Length)]);
+                bool vpOk = false;
 
-                bool vpOk;
                 if (isDetached)
-                    // Usar bytes UTF-8 directamente: Inji firma con chars literales, no \uXXXX
-                    vpOk = JwsEd25519Verifier.VerifyDetachedJwsRawBytes(protectedHeader, vpPayloadBytes, vpParts[2], holderKey);
-                else
-                    vpOk = JwsEd25519Verifier.VerifyCompactJws(vpJws, holderKey);
+                {
+                    // === Intento 1: bytes crudos del JSON recibido (sin re-serialización) ===
+                    var rawBytes = ExtractVpBytesWithoutProof(rawVpJson);
+                    _logger.LogInformation("VP raw bytes (sin proof) | len={Len} | hash={Hash}",
+                        rawBytes.Length, Convert.ToHexString(SHA256.HashData(rawBytes)));
+                    vpOk = JwsEd25519Verifier.VerifyDetachedJwsRawBytes(protectedHeader, rawBytes, vpParts[2], holderKey);
+                    _logger.LogInformation("Resultado con raw bytes: {VpOk}", vpOk);
 
-                _logger.LogInformation("Resultado verificación VP firma: {VpOk}", vpOk);
+                    if (!vpOk)
+                    {
+                        // === Intento 2: re-serialización desde JsonNode (approach original) ===
+                        var vpCopy = JsonNode.Parse(vpRoot.ToJsonString())!.AsObject();
+                        vpCopy.Remove("proof");
+                        var relaxedOptions = new JsonSerializerOptions
+                        {
+                            WriteIndented = false,
+                            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                        };
+                        var vpPayload = JsonSerializer.Serialize(vpCopy, relaxedOptions);
+                        var vpPayloadBytes = Encoding.UTF8.GetBytes(vpPayload);
+                        _logger.LogInformation("VP reserializado | len={Len} | hash={Hash}",
+                            vpPayloadBytes.Length, Convert.ToHexString(SHA256.HashData(vpPayloadBytes)));
+                        vpOk = JwsEd25519Verifier.VerifyDetachedJwsRawBytes(protectedHeader, vpPayloadBytes, vpParts[2], holderKey);
+                        _logger.LogInformation("Resultado con reserialización: {VpOk}", vpOk);
+                    }
+                }
+                else
+                {
+                    vpOk = JwsEd25519Verifier.VerifyCompactJws(vpJws, holderKey);
+                    _logger.LogInformation("Resultado compact JWS: {VpOk}", vpOk);
+                }
 
                 return vpOk
                     ? (true,  "VP firmada por el titular de la credencial")
@@ -1291,6 +1297,29 @@ namespace Minedu.VC.Verifier.Services
                 _logger.LogError(ex, "Error al verificar holder binding");
                 return (false, $"Error verificando holder binding: {ex.Message}");
             }
+        }
+
+        // Extrae los bytes del VP JSON sin el campo "proof" usando el JSON crudo recibido
+        // (sin re-serialización, para preservar el formato exacto que firmó Inji)
+        private static byte[] ExtractVpBytesWithoutProof(string rawVpJson)
+        {
+            using var doc = JsonDocument.Parse(rawVpJson);
+            using var ms = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(ms, new JsonWriterOptions
+            {
+                Indented = false,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            }))
+            {
+                writer.WriteStartObject();
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.NameEquals("proof")) continue;
+                    prop.WriteTo(writer);
+                }
+                writer.WriteEndObject();
+            }
+            return ms.ToArray();
         }
 
         // Decodifica did:jwk:<base64url(jwk)> → bytes clave pública Ed25519
